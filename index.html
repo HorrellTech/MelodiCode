@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MelodiCode - Code-Based Music Generator</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/themes.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="app">
+        <!-- Top Toolbar -->
+        <header class="toolbar">
+            <div class="toolbar-section">
+                <div class="logo">
+                    <i class="fas fa-music"></i>
+                    <span>MelodiCode</span>
+                </div>
+                <div class="project-controls">
+                    <button class="btn btn-sm" id="newProject">
+                        <i class="fas fa-file"></i> New
+                    </button>
+                    <button class="btn btn-sm" id="openProject">
+                        <i class="fas fa-folder-open"></i> Open
+                    </button>
+                    <button class="btn btn-sm" id="saveProject">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <button class="btn btn-sm" id="exportWav">
+                        <i class="fas fa-download"></i> Export WAV
+                    </button>
+                </div>
+            </div>
+            
+            <div class="toolbar-section transport-controls">
+                <button class="btn btn-transport" id="playBtn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="btn btn-transport" id="pauseBtn">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button class="btn btn-transport" id="stopBtn">
+                    <i class="fas fa-stop"></i>
+                </button>
+                <div class="time-display">
+                    <span id="currentTime">00:00</span> / <span id="totalTime">00:00</span>
+                </div>
+            </div>
+            
+            <div class="toolbar-section">
+                <div class="master-volume">
+                    <label>Master</label>
+                    <input type="range" id="masterVolume" min="0" max="100" value="75">
+                    <span id="masterVolumeValue">75%</span>
+                </div>
+                <button class="btn btn-sm" id="settingsBtn">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Panel - File Browser & Samples -->
+            <aside class="left-panel">
+                <div class="panel-section">
+                    <h3>Project Files</h3>
+                    <div class="file-actions">
+                        <button class="btn btn-sm" id="importAudio">
+                            <i class="fas fa-upload"></i> Import Audio
+                        </button>
+                        <input type="file" id="audioFileInput" accept="audio/*" multiple style="display: none;">
+                    </div>
+                    <div class="file-tree" id="projectFiles">
+                        <div class="tree-item">
+                            <i class="fas fa-folder"></i>
+                            <span>Imported Samples</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Built-in Samples</h3>
+                    <div class="file-tree" id="builtinSamples">
+                        <div class="tree-folder" data-folder="drums">
+                            <div class="tree-item folder">
+                                <i class="fas fa-folder"></i>
+                                <span>Drums</span>
+                                <i class="fas fa-chevron-down toggle"></i>
+                            </div>
+                            <div class="tree-children">
+                                <div class="tree-item file" data-sample="kick">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Kick</span>
+                                    <button class="play-sample" data-sample="kick">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="tree-item file" data-sample="snare">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Snare</span>
+                                    <button class="play-sample" data-sample="snare">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="tree-item file" data-sample="hihat">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Hi-Hat</span>
+                                    <button class="play-sample" data-sample="hihat">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tree-folder" data-folder="bass">
+                            <div class="tree-item folder">
+                                <i class="fas fa-folder"></i>
+                                <span>Bass</span>
+                                <i class="fas fa-chevron-down toggle"></i>
+                            </div>
+                            <div class="tree-children">
+                                <div class="tree-item file" data-sample="bass_low">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Bass Low</span>
+                                    <button class="play-sample" data-sample="bass_low">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="tree-item file" data-sample="bass_mid">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Bass Mid</span>
+                                    <button class="play-sample" data-sample="bass_mid">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tree-folder" data-folder="synth">
+                            <div class="tree-item folder">
+                                <i class="fas fa-folder"></i>
+                                <span>Synth</span>
+                                <i class="fas fa-chevron-down toggle"></i>
+                            </div>
+                            <div class="tree-children">
+                                <div class="tree-item file" data-sample="lead_1">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Lead 1</span>
+                                    <button class="play-sample" data-sample="lead_1">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                                <div class="tree-item file" data-sample="pad_1">
+                                    <i class="fas fa-file-audio"></i>
+                                    <span>Pad 1</span>
+                                    <button class="play-sample" data-sample="pad_1">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel - Code Editor -->
+            <main class="center-panel">
+                <div class="editor-header">
+                    <h3>MelodiCode Editor</h3>
+                    <div class="editor-actions">
+                        <button class="btn btn-sm" id="formatCode">
+                            <i class="fas fa-code"></i> Format
+                        </button>
+                        <button class="btn btn-sm" id="validateCode">
+                            <i class="fas fa-check"></i> Validate
+                        </button>
+                    </div>
+                </div>
+                <div class="code-editor">
+                    <textarea id="codeInput" placeholder="// Welcome to MelodiCode!
+// Create music using block-based code
+
+[main]
+sample kick 1 1 // sample_name pitch timescale
+tone C4 1        // tone pitch
+wait 0.5         // wait in seconds
+sample snare 1 1
+wait 0.5
+[end]
+
+[bass]
+tone C2 2
+wait 1
+tone G2 2
+wait 1
+[end]
+
+// Play multiple blocks together
+play main bass volume=0.8 pan=0
+">// Welcome to MelodiCode!
+// Create music using block-based code
+
+[main]
+sample kick 1 1 // sample_name pitch timescale
+tone C4 1        // tone pitch
+wait 0.5         // wait in seconds
+sample snare 1 1
+wait 0.5
+[end]
+
+[bass]
+tone C2 2
+wait 1
+tone G2 2
+wait 1
+[end]
+
+// Play multiple blocks together
+play main bass volume=0.8 pan=0
+</textarea>
+                </div>
+                
+                <!-- Master Effects Panel -->
+                <div class="master-effects">
+                    <h4>Master Effects</h4>
+                    <div class="effects-grid">
+                        <div class="effect-control">
+                            <label>Compressor</label>
+                            <input type="range" id="compressorThreshold" min="-50" max="0" value="-20">
+                            <span>-20dB</span>
+                        </div>
+                        <div class="effect-control">
+                            <label>Limiter</label>
+                            <input type="range" id="limiterThreshold" min="-10" max="0" value="-3">
+                            <span>-3dB</span>
+                        </div>
+                        <div class="effect-control">
+                            <label>Reverb</label>
+                            <input type="range" id="reverbWet" min="0" max="100" value="20">
+                            <span>20%</span>
+                        </div>
+                        <div class="effect-control">
+                            <label>EQ High</label>
+                            <input type="range" id="eqHigh" min="-12" max="12" value="0">
+                            <span>0dB</span>
+                        </div>
+                        <div class="effect-control">
+                            <label>EQ Mid</label>
+                            <input type="range" id="eqMid" min="-12" max="12" value="0">
+                            <span>0dB</span>
+                        </div>
+                        <div class="effect-control">
+                            <label>EQ Low</label>
+                            <input type="range" id="eqLow" min="-12" max="12" value="0">
+                            <span>0dB</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel - Visualizer & Block Inspector -->
+            <aside class="right-panel">
+                <div class="panel-section">
+                    <h3>Waveform</h3>
+                    <canvas id="waveformCanvas" width="300" height="150"></canvas>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Block Inspector</h3>
+                    <div id="blockInspector">
+                        <p>Select a block to view details</p>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Output</h3>
+                    <div id="outputLog" class="output-log">
+                        <div class="log-entry">MelodiCode Ready</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-section">
+                <span id="statusMessage">Ready</span>
+            </div>
+            <div class="status-section">
+                <button class="btn btn-sm gemini-btn" id="geminiBtn">
+                    <i class="fas fa-robot"></i> Ask Gemini
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" id="closeSettings">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="theme">Theme</button>
+                    <button class="tab-btn" data-tab="gemini">Gemini AI</button>
+                    <button class="tab-btn" data-tab="audio">Audio</button>
+                </div>
+                
+                <div class="tab-content active" id="themeTab">
+                    <h3>Theme Settings</h3>
+                    <div class="form-group">
+                        <label>Color Theme</label>
+                        <select id="themeSelect">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                            <option value="neon">Neon</option>
+                            <option value="retro">Retro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Accent Color</label>
+                        <input type="color" id="accentColor" value="#00d4ff">
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="geminiTab">
+                    <h3>Google Gemini Integration</h3>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="geminiApiKey" placeholder="Enter your Gemini API key">
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <select id="geminiModel">
+                            <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="audioTab">
+                    <h3>Audio Settings</h3>
+                    <div class="form-group">
+                        <label>Sample Rate</label>
+                        <select id="sampleRate">
+                            <option value="44100">44.1 kHz</option>
+                            <option value="48000">48 kHz</option>
+                            <option value="96000">96 kHz</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Buffer Size</label>
+                        <select id="bufferSize">
+                            <option value="256">256 samples</option>
+                            <option value="512">512 samples</option>
+                            <option value="1024">1024 samples</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="saveSettings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gemini Chat Modal -->
+    <div id="geminiModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Gemini AI Assistant</h2>
+                <div class="modal-controls">
+                    <button class="btn btn-sm" id="clearGeminiChat" title="Clear conversation">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                    <button class="btn btn-sm" id="exportGeminiChat" title="Export conversation">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                    <button class="close-btn" id="closeGemini">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="chat-container">
+                    <div id="chatHistory" class="chat-history">
+                        <div class="chat-message ai">
+                            <div class="message-content">
+                                Hello! I'm here to help you create music with MelodiCode. I understand the block-based syntax and can generate code for songs. What would you like to create?
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <textarea id="chatInput" placeholder="Ask me to generate a song, explain syntax, or help with your code..."></textarea>
+                        <button id="sendChat" class="btn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/audio-engine.js"></script>
+    <script src="js/code-interpreter.js"></script>
+    <script src="js/ui-manager.js"></script>
+    <script src="js/file-manager.js"></script>
+    <script src="js/gemini-integration.js"></script>
+    <script src="js/mobile.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

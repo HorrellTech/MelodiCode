@@ -1,0 +1,153 @@
+/* Theme Definitions */
+
+/* Dark Theme (Default) */
+:root[data-theme="dark"] {
+    --primary-bg: #1a1a1a;
+    --secondary-bg: #2d2d2d;
+    --tertiary-bg: #3a3a3a;
+    --accent-color: #00d4ff;
+    --accent-hover: #00b8e6;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --text-muted: #808080;
+    --border-color: #404040;
+    --error-color: #ff4757;
+    --success-color: #2ed573;
+    --warning-color: #ffa502;
+}
+
+/* Light Theme */
+:root[data-theme="light"] {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f8f9fa;
+    --tertiary-bg: #e9ecef;
+    --accent-color: #007bff;
+    --accent-hover: #0056b3;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-muted: #adb5bd;
+    --border-color: #dee2e6;
+    --error-color: #dc3545;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+}
+
+/* Neon Theme */
+:root[data-theme="neon"] {
+    --primary-bg: #0a0a0a;
+    --secondary-bg: #1a0a1a;
+    --tertiary-bg: #2a1a2a;
+    --accent-color: #ff00ff;
+    --accent-hover: #cc00cc;
+    --text-primary: #00ffff;
+    --text-secondary: #ff00aa;
+    --text-muted: #aa00aa;
+    --border-color: #ff00ff;
+    --error-color: #ff0080;
+    --success-color: #00ff80;
+    --warning-color: #ffff00;
+}
+
+/* Retro Theme */
+:root[data-theme="retro"] {
+    --primary-bg: #2b1810;
+    --secondary-bg: #3d2317;
+    --tertiary-bg: #4f2e1e;
+    --accent-color: #ff8c42;
+    --accent-hover: #e67e3c;
+    --text-primary: #f4d1a6;
+    --text-secondary: #d4b896;
+    --text-muted: #b49f86;
+    --border-color: #8b6f47;
+    --error-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+}
+
+/* Theme-specific visual effects */
+
+/* Neon theme glow effects */
+:root[data-theme="neon"] .btn:hover {
+    box-shadow: 0 0 10px var(--accent-color);
+    text-shadow: 0 0 5px var(--accent-color);
+}
+
+:root[data-theme="neon"] .logo {
+    text-shadow: 0 0 10px var(--accent-color);
+}
+
+:root[data-theme="neon"] #codeInput {
+    text-shadow: 0 0 3px var(--text-primary);
+}
+
+:root[data-theme="neon"] .tree-item:hover {
+    box-shadow: inset 0 0 5px var(--accent-color);
+}
+
+/* Light theme adjustments */
+:root[data-theme="light"] .modal {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] .btn {
+    box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="light"] .btn:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* Retro theme styling */
+:root[data-theme="retro"] .btn {
+    border-radius: 0;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+:root[data-theme="retro"] .modal-content {
+    border-radius: 0;
+    border: 2px solid var(--accent-color);
+}
+
+:root[data-theme="retro"] #codeInput {
+    font-family: 'Courier New', monospace;
+    background-image: 
+        linear-gradient(90deg, transparent 98%, var(--border-color) 100%),
+        linear-gradient(transparent 98%, var(--border-color) 100%);
+    background-size: 20px 20px;
+}
+
+/* Dynamic accent color application */
+.accent-color {
+    color: var(--accent-color) !important;
+}
+
+.accent-bg {
+    background-color: var(--accent-color) !important;
+}
+
+.accent-border {
+    border-color: var(--accent-color) !important;
+}
+
+/* Theme transition animations */
+* {
+    transition: 
+        background-color 0.3s ease,
+        color 0.3s ease,
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+/* Override transitions for specific elements that should be instant */
+.btn,
+input[type="range"]::-webkit-slider-thumb,
+.modal {
+    transition: 
+        background-color var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+}

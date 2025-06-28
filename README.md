@@ -1,2 +1,290 @@
-# MelodiCode
+# MelodiCode - Code-Based Music Generator
+
+A powerful web-based Digital Audio Workstation (DAW) that lets you create music using a custom block-based programming language. Compose, arrange, and produce music through code with real-time audio processing, AI assistance, and professional-grade effects.
+
+## 🎵 Features
+
+### Core Music Production
+- **Block-based Code Syntax**: Intuitive programming language for music creation
+- **Real-time Audio Processing**: Web Audio API powered engine with low-latency playback
+- **Built-in Sample Library**: High-quality drum samples, bass sounds, leads, and pads
+- **Audio File Import**: Support for WAV, MP3, OGG, FLAC, and other audio formats
+- **Professional Effects**: Compressor, limiter, reverb, and 3-band EQ
+- **WAV Export**: Render your compositions to high-quality audio files
+
+### Development Environment
+- **Modern UI**: Beautiful, responsive interface with multiple theme options
+- **Live Code Editor**: Syntax highlighting and real-time validation
+- **Project Management**: Save, load, and organize your music projects
+- **Auto-save**: Never lose your work with automatic project backup
+- **Block Inspector**: Real-time analysis of your code structure and content
+
+### AI Integration
+- **Google Gemini AI**: Intelligent music composition assistant
+- **Code Generation**: AI-powered melody, rhythm, and arrangement creation
+- **Musical Guidance**: Expert advice on music theory and composition techniques
+- **Smart Suggestions**: Context-aware improvements for your compositions
+
+### Advanced Features
+- **Multi-track Playback**: Play multiple blocks simultaneously with individual volume and pan
+- **Effect Chains**: Apply effects to individual blocks or the master output
+- **Waveform Visualization**: Real-time audio analysis and visual feedback
+- **Keyboard Shortcuts**: Efficient workflow with customizable hotkeys
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+
+## 🚀 Getting Started
+
+### Quick Start
+1. Open `index.html` in a modern web browser
+2. The application will initialize automatically
+3. Try the example code or create your own compositions
+4. Use the transport controls to play, pause, and stop playback
+
+### Basic Syntax
+
+```melodicode
+// Define a drum pattern
+[drums]
+sample kick 1 1 0.8     // kick drum at normal pitch and volume
+wait 0.5                // wait half a second
+sample snare 1 1 0.7    // snare drum
+wait 0.5
+[end]
+
+// Define a bass line
+[bass]
+tone C2 0.5 0.8         // C2 note for 0.5 seconds
+wait 0.5
+tone G2 0.5 0.8         // G2 note
+wait 0.5
+[end]
+
+// Play blocks together
+play drums bass volume=0.9 pan=0
+```
+
+## 📖 Language Reference
+
+### Block Definition
+```melodicode
+[block_name]
+    // Commands go here
+[end]
+```
+
+### Commands
+
+#### Sample Playback
+```melodicode
+sample <name> [pitch] [timescale] [volume] [pan]
+```
+- `name`: Sample name (kick, snare, hihat, etc.)
+- `pitch`: Playback speed multiplier (default: 1)
+- `timescale`: Time stretch factor (default: 1)
+- `volume`: Volume level 0-1 (default: 0.8)
+- `pan`: Stereo position -1 to 1 (default: 0)
+
+#### Tone Generation
+```melodicode
+tone <frequency|note> [duration] [volume] [pan] [waveType]
+```
+- `frequency|note`: Frequency in Hz or note name (C4, A#3, etc.)
+- `duration`: Length in seconds (default: 1)
+- `volume`: Volume level 0-1 (default: 0.8)
+- `pan`: Stereo position -1 to 1 (default: 0)
+- `waveType`: sine, square, sawtooth, triangle (default: sine)
+
+#### Timing
+```melodicode
+wait <duration>
+```
+- `duration`: Time to wait in seconds
+
+#### Block Playback
+```melodicode
+play <block1> [block2...] [parameters...]
+```
+- Play one or more blocks simultaneously
+- Parameters: `volume=0.8`, `pan=0`, etc.
+
+#### Loops
+```melodicode
+loop <count> <block_name>
+```
+- Repeat a block specified number of times
+
+#### Variables
+```melodicode
+set <variable> <value>
+```
+- Set a variable for reuse in commands
+
+### Built-in Samples
+- **Drums**: kick, snare, hihat
+- **Bass**: bass_low, bass_mid
+- **Synth**: lead_1, pad_1
+
+## 🎨 Themes
+
+MelodiCode supports multiple visual themes:
+- **Dark**: Default professional dark theme
+- **Light**: Clean bright theme for daylight use
+- **Neon**: Cyberpunk-inspired theme with glow effects
+- **Retro**: Vintage computer terminal aesthetic
+
+Customize colors and create your own themes using CSS variables.
+
+## 🤖 AI Assistant
+
+### Setup
+1. Get a Google Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Open Settings → Gemini AI tab
+3. Enter your API key and save
+
+### Usage
+- Ask for musical inspiration: "Create a catchy pop song"
+- Get technical help: "How do I make a drum pattern?"
+- Improve existing code: "Make this bassline more interesting"
+- Learn music theory: "Explain chord progressions"
+
+## 🔧 Technical Details
+
+### System Requirements
+- Modern web browser with Web Audio API support
+- Minimum 4GB RAM recommended
+- Chrome, Firefox, Safari, or Edge (latest versions)
+
+### Browser Compatibility
+- ✅ Chrome 66+
+- ✅ Firefox 60+
+- ✅ Safari 14+
+- ✅ Edge 79+
+
+### Audio Specifications
+- Sample Rate: 44.1kHz, 48kHz, or 96kHz
+- Bit Depth: 32-bit float (internal processing)
+- Latency: <10ms (hardware dependent)
+- Export Format: 16-bit WAV
+
+## 📁 Project Structure
+
+```
+MelodiCode/
+├── index.html              # Main application file
+├── css/
+│   ├── styles.css          # Core styles and layout
+│   └── themes.css          # Theme definitions
+├── js/
+│   ├── app.js              # Main application controller
+│   ├── audio-engine.js     # Web Audio API integration
+│   ├── code-interpreter.js # MelodiCode language parser
+│   ├── ui-manager.js       # User interface management
+│   ├── file-manager.js     # Project and file handling
+│   └── gemini-integration.js # AI assistant integration
+└── README.md               # This file
+```
+
+## 🎯 Examples
+
+### Drum Pattern
+```melodicode
+[basic_beat]
+sample kick 1 1
+wait 0.5
+sample snare 1 1
+wait 0.5
+sample kick 1 1
+wait 0.25
+sample kick 1 1
+wait 0.25
+sample snare 1 1
+wait 0.5
+[end]
+
+loop 4 basic_beat
+```
+
+### Melody with Harmony
+```melodicode
+[melody]
+tone C4 0.5
+tone E4 0.5
+tone G4 0.5
+tone C5 0.5
+[end]
+
+[harmony]
+tone C3 2.0
+[end]
+
+play melody harmony volume=0.8
+```
+
+### Electronic Beat
+```melodicode
+[kick_pattern]
+sample kick 1 1 0.9
+wait 0.5
+sample kick 1 1 0.6
+wait 0.5
+[end]
+
+[hihat_pattern]
+wait 0.25
+sample hihat 1 1 0.4
+wait 0.25
+sample hihat 1 1 0.4
+wait 0.25
+sample hihat 1 1 0.4
+wait 0.25
+[end]
+
+[bass_drop]
+tone C1 0.1 1.0 0 square
+tone C1 0.1 1.0 0 square
+tone C1 0.3 1.0 0 square
+wait 0.5
+[end]
+
+play kick_pattern hihat_pattern bass_drop
+```
+
+## 🛠️ Development
+
+### Local Development
+1. Clone or download the repository
+2. Open `index.html` in a web browser
+3. No build process required - pure HTML/CSS/JavaScript
+
+### Adding Custom Samples
+1. Use the Import Audio button in the left panel
+2. Supported formats: WAV, MP3, OGG, FLAC, AAC
+3. Samples are automatically available in your code
+
+### Contributing
+- Report bugs and request features via GitHub issues
+- Submit pull requests for improvements
+- Follow existing code style and conventions
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Web Audio API for real-time audio processing
+- Google Gemini for AI-powered music assistance
+- Font Awesome for beautiful icons
+- The open-source music production community
+
+## 🔗 Links
+
+- [Demo](https://your-demo-link.com)
+- [Documentation](https://your-docs-link.com)
+- [GitHub](https://github.com/your-username/melodicode)
+- [Discord Community](https://discord.gg/your-invite)
+
+---
+
+**Create music through code. Express yourself algorithmically. Welcome to MelodiCode.**
 A browser based, code based music generator with AI capabilities
