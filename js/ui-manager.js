@@ -493,19 +493,15 @@ play main`);
 
     async exportWAV() {
         try {
-            /*this.updateStatus('Exporting WAV...');
-            const duration = 30; // seconds
-            const wavBlob = await window.audioEngine.exportWAV(duration);
-            
-            const url = URL.createObjectURL(wavBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'melodicode-export.wav';
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            this.updateStatus('WAV exported');*/
-            this.showError('WAV export is not yet implemented');
+            this.updateStatus('Exporting WAV...');
+            const duration = 30; // seconds, or make this user-configurable
+            const result = await window.fileManager.exportAudio('wav', duration);
+
+            if (result.success) {
+                this.updateStatus('WAV exported');
+            } else {
+                this.showError(result.message);
+            }
         } catch (error) {
             this.showError('Export failed: ' + error.message);
         }

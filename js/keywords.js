@@ -57,6 +57,17 @@ window.melodicodeKeywords = {
             { name: "waveType", desc: "sine, square, sawtooth, triangle (default: sine)" }
         ]
     },
+    /*sidechain: {
+        description: "Apply sidechain compression to a block.",
+        usage: "sidechain <block1> <block2> <amount> [volume] [pan]",
+        params: [
+            { name: "block1", desc: "Block to apply sidechain to" },
+            { name: "block2", desc: "Block to use as sidechain trigger" },
+            { name: "amount", desc: "Compression amount (0-1)" },
+            { name: "volume", desc: "Volume 0-1 (default: 0.8)" },
+            { name: "pan", desc: "Stereo position -1 to 1 (default: 0)" }
+        ]
+    },*/
     wait: {
         description: "Pause for a given duration.",
         usage: "wait <duration>",

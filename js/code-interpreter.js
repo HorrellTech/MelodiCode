@@ -156,6 +156,14 @@ class CodeInterpreter {
                     return { valid: false, error: 'slide command requires key1, key2, and timescale' };
                 }
                 break;
+            case 'sidechain':
+                if (parts.length < 4) {
+                    return { valid: false, error: 'sidechain command requires block1, block2, and amount' };
+                }
+                if (isNaN(parseFloat(parts[3])) || parseFloat(parts[3]) < 0 || parseFloat(parts[3]) > 1) {
+                    return { valid: false, error: 'sidechain amount must be between 0 and 1' };
+                }
+                break;
             case 'wait':
                 if (parts.length < 2) {
                     return { valid: false, error: 'wait command requires duration' };
@@ -239,6 +247,8 @@ class CodeInterpreter {
                 return this.executeTone(parts, startTime);
             case 'slide':
                 return this.executeSlide(parts, startTime);
+            case 'sidechain':
+                return this.executeSidechain(parts, startTime);
             case 'wait':
                 return this.executeWait(parts, startTime);
             case 'play':
@@ -404,6 +414,61 @@ class CodeInterpreter {
         return durationInSeconds;
     }
 
+    async executeSidechain(parts, startTime) {
+        const block1 = parts[1];
+        const block2 = parts[2];
+        const amount = parseFloat(parts[3]);
+
+        // Create a gain node for block1
+        const ctx = this.audioEngine.audioContext;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1;
+
+        // Patch: temporarily override playSample/generateTone for block1 to insert gainNode
+        const origPlaySample = this.audioEngine.playSample.bind(this.audioEngine);
+        const origGenerateTone = this.audioEngine.generateTone.bind(this.audioEngine);
+
+        this.audioEngine.playSample = (...args) => {
+            const src = origPlaySample(...args);
+            if (src && src.gainNode) {
+                src.gainNode.disconnect();
+                src.gainNode.connect(gainNode);
+            }
+            return src;
+        };
+        this.audioEngine.generateTone = (...args) => {
+            const osc = origGenerateTone(...args);
+            if (osc && osc.context) {
+                // Find the gain node in the chain (not trivial, so skip for now)
+            }
+            return osc;
+        };
+
+        // Schedule block1 (all its sounds go through gainNode)
+        const block1Promise = this.executeBlock(block1, startTime);
+
+        // Connect gainNode to output
+        gainNode.connect(this.audioEngine.eq.low);
+
+        // Schedule block2 and collect its events
+        // For simplicity, just run block2 and duck block1's gain for the duration
+        let block2Duration = this.estimateDuration(block2);
+        if (!isFinite(block2Duration) || block2Duration <= 0) block2Duration = 0.1; // fallback to a small value
+
+        gainNode.gain.setValueAtTime(1, ctx.currentTime + startTime);
+        gainNode.gain.linearRampToValueAtTime(1 - amount, ctx.currentTime + startTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + startTime + block2Duration);
+
+        // Restore original methods
+        this.audioEngine.playSample = origPlaySample;
+        this.audioEngine.generateTone = origGenerateTone;
+
+        // Wait for both blocks to finish
+        await Promise.all([block1Promise, this.executeBlock(block2, startTime)]);
+
+        return Math.max(this.estimateDuration(block1), block2Duration);
+    }
+
     executeWait(parts, startTime) {
         let duration = this.parseValue(parts[1]);
         // Convert wait duration based on BPM (treat as beats)
@@ -416,23 +481,17 @@ class CodeInterpreter {
 
         // Parse block names and parameters
         for (let i = 1; i < parts.length; i++) {
-            const part = parts[i];
-            if (part.includes('=')) {
-                const [key, value] = part.split('=');
-                params[key] = this.parseValue(value);
+            if (parts[i].includes('=')) {
+                const [key, value] = parts[i].split('=');
+                params[key] = value;
             } else {
-                blockNames.push(part);
+                blockNames.push(parts[i]);
             }
         }
 
         // Play blocks simultaneously
         const promises = blockNames.map(blockName => {
-            if (this.blocks.has(blockName)) {
-                return this.executeBlock(blockName, startTime, params);
-            } else {
-                console.warn(`Block '${blockName}' not found`);
-                return Promise.resolve(0);
-            }
+            return this.executeBlock(blockName, startTime, params);
         });
 
         const durations = await Promise.all(promises);
@@ -576,6 +635,59 @@ class CodeInterpreter {
 
         info.duration = estimatedDuration;
         return info;
+    }
+
+    estimateDuration(blockName = 'main', visited = new Set()) {
+        if (!this.blocks.has(blockName)) return 0;
+        // Only use visited for direct recursion protection, not for loop/play
+        if (visited.has(blockName)) return 0;
+        visited.add(blockName);
+
+        let totalBeats = 0;
+        let bpm = this.bpm;
+        let beatDuration = 60 / bpm;
+
+        const commands = this.blocks.get(blockName);
+        for (const command of commands) {
+            const parts = command.split(/\s+/);
+            const cmd = parts[0];
+            switch (cmd) {
+                case 'wait':
+                    totalBeats += parseFloat(parts[1]) || 0;
+                    break;
+                case 'tone':
+                case 'slide':
+                    totalBeats += parseFloat(parts[2]) || 1;
+                    break;
+                case 'bpm':
+                    bpm = parseFloat(parts[1]) || bpm;
+                    beatDuration = 60 / bpm;
+                    break;
+                case 'play': {
+                    // Play blocks in parallel, so take the max duration
+                    let max = 0;
+                    for (let i = 1; i < parts.length; i++) {
+                        if (!parts[i].includes('=')) {
+                            // Don't pass visited set, allow repeated blocks
+                            max = Math.max(max, this.estimateDuration(parts[i], new Set(visited)));
+                        }
+                    }
+                    totalBeats += max / beatDuration;
+                    break;
+                }
+                case 'loop': {
+                    const count = parseInt(parts[1]) || 1;
+                    let sum = 0;
+                    for (let i = 2; i < parts.length; i++) {
+                        // Don't pass visited set, allow repeated blocks
+                        sum += this.estimateDuration(parts[i], new Set(visited));
+                    }
+                    totalBeats += (sum / beatDuration) * count;
+                    break;
+                }
+            }
+        }
+        return totalBeats * beatDuration;
     }
 
     getAllBlocks() {

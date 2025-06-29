@@ -933,16 +933,34 @@ class AudioEngine {
             throw new Error('No code to export');
         }
 
+        // Parse code to update blocks
+        window.codeInterpreter.parse(code);
+
+        // Estimate duration using the interpreter
+        let estimatedDuration = 10;
+        try {
+            estimatedDuration = window.codeInterpreter.estimateDuration('main');
+            console.log('Estimated duration:', estimatedDuration); 
+            if (!estimatedDuration || isNaN(estimatedDuration) || estimatedDuration < 1) {
+                estimatedDuration = 10;
+            }
+        } catch (e) {
+            estimatedDuration = 10;
+        }
+        // Add a buffer to avoid cutting off reverb/tails
+        const TAIL_SECONDS = 5;
+        estimatedDuration += TAIL_SECONDS;
+
         // Create offline context for rendering
         const offlineContext = new OfflineAudioContext(
             2, // stereo
-            duration * this.audioContext.sampleRate,
+            estimatedDuration * this.audioContext.sampleRate,
             this.audioContext.sampleRate
         );
 
         try {
             // Parse and execute the code in offline context
-            await this.renderCodeToOfflineContext(code, offlineContext, duration);
+            await this.renderCodeToOfflineContext(code, offlineContext, estimatedDuration);
 
             // Render the audio
             const renderedBuffer = await offlineContext.startRendering();
@@ -1019,13 +1037,8 @@ class AudioEngine {
             activeBlocks: new Map(),
 
             // Override the audioContext currentTime property
-            get audioContext() {
-                return {
-                    ...offlineContext,
-                    get currentTime() { return offlineCurrentTime; },
-                    set currentTime(value) { offlineCurrentTime = value; }
-                };
-            },
+            audioContext: offlineContext,
+            offlineCurrentTime: 0,
 
             playSample: (sampleName, pitch = 1, timescale = 1, when = 0, volume = 1, pan = 0) => {
                 // Use the offline current time plus the when parameter
@@ -1058,13 +1071,38 @@ class AudioEngine {
             stop: () => { }
         };
 
+        // Patch the interpreter's executeBlock and executeCommand for offline scheduling
+        offlineEngine.executeBlock = async (blockName, startTime = 0, globalParams = {}) => {
+            if (!window.codeInterpreter.blocks.has(blockName)) {
+                console.warn(`Block '${blockName}' not found`);
+                return 0;
+            }
+            const commands = window.codeInterpreter.blocks.get(blockName);
+            let blockTime = 0;
+            for (const command of commands) {
+                // Each command schedules at offlineEngine.offlineCurrentTime + blockTime
+                const duration = await offlineEngine.executeCommand(command, offlineEngine.offlineCurrentTime + blockTime);
+                blockTime += duration;
+            }
+            offlineEngine.offlineCurrentTime += blockTime;
+            return blockTime;
+        };
+
+        offlineEngine.executeCommand = async (command, absTime) => {
+            // Use the original interpreter's executeCommand, but pass absTime as startTime
+            // (You may need to bind the interpreter if needed)
+            return await window.codeInterpreter.__proto__.executeCommand.call(window.codeInterpreter, command, absTime);
+        };
+
         return offlineEngine;
     }
 
     async executeCodeOffline(offlineEngine, maxDuration) {
         // Temporarily replace the global audioEngine with our offline version
         const originalAudioEngine = window.audioEngine;
+        const originalInterpreterEngine = window.codeInterpreter.audioEngine;
         window.audioEngine = offlineEngine;
+        window.codeInterpreter.audioEngine = offlineEngine;
 
         try {
             console.log('Starting offline code execution...');
@@ -1074,7 +1112,6 @@ class AudioEngine {
                 await window.codeInterpreter.execute();
             } else {
                 console.warn('Code interpreter execute method not available');
-
                 // Fallback: try to execute main block directly if available
                 if (window.codeInterpreter && window.codeInterpreter.blocks) {
                     const mainBlock = window.codeInterpreter.blocks.get('main');
@@ -1091,6 +1128,7 @@ class AudioEngine {
         } finally {
             // Restore the original audio engine
             window.audioEngine = originalAudioEngine;
+            window.codeInterpreter.audioEngine = originalInterpreterEngine;
         }
     }
 

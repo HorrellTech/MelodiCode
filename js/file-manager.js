@@ -247,10 +247,19 @@ play main bass volume=0.9`;
         URL.revokeObjectURL(url);
     }
 
-    async exportAudio(format = 'wav', duration = 30) {
+    async exportAudio(format = 'wav', duration = null) {
         try {
             let audioBlob;
-            
+            // Always estimate duration using the code interpreter
+            if (window.codeInterpreter) {
+                // Estimate main block duration in seconds
+                duration = window.codeInterpreter.estimateDuration('main');
+                // Add a small buffer for reverb/tails
+                duration = Math.ceil(duration + 1);
+                if (duration < 2) duration = 10; // fallback minimum
+            } else {
+                duration = 10; // fallback if interpreter missing
+            }
             switch (format.toLowerCase()) {
                 case 'wav':
                     audioBlob = await window.audioEngine.exportWAV(duration);
@@ -264,9 +273,9 @@ play main bass volume=0.9`;
             a.href = url;
             a.download = this.projectData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.' + format;
             a.click();
-            
+
             URL.revokeObjectURL(url);
-            
+
             return { success: true, message: `${format.toUpperCase()} exported successfully` };
         } catch (error) {
             return { success: false, message: 'Export failed: ' + error.message };

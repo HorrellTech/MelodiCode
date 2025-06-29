@@ -264,6 +264,7 @@ bpm 120
 
 [main]
     play melody // Can play items by themselves
+    play melody drums // Can play items together
     loop 4 drums melody // Can play drums along with melody, looped 4 times
 [end]
 
@@ -274,6 +275,60 @@ Request: ${userMessage}`;
 
         return systemPrompt;
     }
+
+    /*buildPrompt(userMessage, context) {
+        const systemPrompt = `
+You are a MelodiCode music programming assistant.
+
+SYNTAX:
+- Blocks: [name] ... [end]
+- Custom samples: <sampleName> ... <end>
+- Commands:
+    set <var> <value>
+    sample <name> [pitch] [timescale] [volume] [pan]
+    tone <note|freq> [duration] [waveType] [volume] [pan]
+    slide <startNote> <endNote> <duration> [waveType] [volume] [pan]
+    sidechain <block1> <block2> <amount>
+    wait <duration>
+    bpm <value>
+    play <block1> [block2...]
+    loop <count> <block1> [block2...] **LOOP IS NOT A BLOCK, LOOP IS USED LIKE PLAY BUT REPEATS BLOCKS**
+
+RULES:
+- Always include a bpm command.
+- Always use a [main] block and end with play main (outside blocks).
+- Use play for parallel, loop for repeated blocks (not samples).
+- Custom samples (<sampleName>) use only tone commands.
+- Comment code with // for clarity.
+- If asked for a block, only return that block.
+
+SAMPLES: ${context.availableSamples.join(', ')}
+CURRENT: ${context.currentCode ? context.currentCode.substring(0, 200) + '...' : 'Empty'}
+
+TEMPLATE:
+\`\`\`
+bpm 120
+<kick_drum>
+    tone c2 0.5 sine
+<end>
+
+[drums]
+    sample kick_drum
+    wait 0.5
+[end]
+
+[main]
+    loop 4 drums
+[end]
+
+play main
+\`\`\`
+
+Request: ${userMessage}
+`;
+
+        return systemPrompt;
+    }*/
 
     validateGeneratedCode(code) {
         const issues = [];
