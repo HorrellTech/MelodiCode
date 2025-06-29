@@ -204,16 +204,19 @@ class GeminiIntegration {
     buildPrompt(userMessage, context) {
         const systemPrompt = `You are a MelodiCode music programming assistant.
 
-SYNTAX:
+SYNTAX(Remember the order of the parameters, DO NOT MIX THEM UP):
 - Blocks: [name] commands [end]
 - Commands: set <variable> <value>,
-    sample <name> [pitch] [timescale] [volume] [pan], 
-    tone <frequency|note> [duration] [volume] [pan] [waveType(sine, sawtooth etc.)], 
-    wait <duration>, 
-    bpm <value>,
-    loop <count> <block_name>,
+    *sample <name> [pitch] [timescale] [volume] [pan], 
+    *tone <frequency|note> [duration] [waveType(sine, sawtooth, triangle, square)] [volume] [pan], 
+    *slide <startNote> <endNote> <duration> [waveType(sine, sawtooth, triangle, square)] [volume] [pan],
+    *wait <duration>, 
+    *bpm <value>,
 
 - Play: play <block1> [block2...] [parameters...(volume=0.8, pan=0, etc.)]
+- Loop: loop <count> <block_name> [block2...] (Make sure not to use the same name as an existing sample or block, use a different name)
+
+***LOOPS ARE USED THE SAME AS PLAY COMMANDS, BUT THEY REPEAT THE BLOCKS A NUMBER OF TIMES. LOOPS ALSO CAN NOT REFERENCE SAMPLES, ONLY BLOCKS***
 
 - You can define custom samples using <sampleName> ... <end> blocks. Use these when asked to create or use custom samples. 
 All commands inside a sample block play simultaneously when triggered with sample <sampleName>. 
@@ -234,12 +237,21 @@ REQUIREMENTS:
 6. When using drums etc, ensure they are played with the other blocks when required, and make sure the drums length matches the melody.
 7. If I ask for only a block, only give me a block, not the full code. If I dont ask for a block specifically, give me the full code. 
 If its a sample block, use <> instead of [], also with the <end>.
+8. Take into account BPM when setting not durations
+
+**Comment parts of the code with // so I can understand what each part does. Not too much text**
 
 TEMPLATE:
 \`\`\`
 bpm 120
+<kick_drum>
+    tone c2 0.5 sine
+    tone e2 0.5 square 0.3
+    tone g2 0.5 sawtooth 0.6
+<end>
+
 [drums]
-    sample kick
+    sample kick_drum
     wait 0.5
 [end]
 
@@ -247,12 +259,12 @@ bpm 120
     tone c4 0.5
     tone e4 0.5
     tone g4 0.5
-    tone c5 0.5
+    slide c5 d4 0.5
 [end]
 
 [main]
     play melody // Can play items by themselves
-    play drums melody // Can play drums along with melody
+    loop 4 drums melody // Can play drums along with melody, looped 4 times
 [end]
 
 play main 

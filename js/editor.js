@@ -92,6 +92,13 @@ CodeMirror.defineSimpleMode("melodicode", {
             token: "sample"
         },
 
+        // Highlight tones (notes like c4, a#3, g#5, etc.)
+        {
+            // Matches: C4, c4, A#3, g#5, etc.
+            regex: /\b([a-gA-G])(#|b)?[0-8]\b/,
+            token: "tone"
+        },
+
         // Highlight block references (e.g. play main)
         {
             regex: /\b(play|loop|effect)\s+([a-zA-Z0-9_]+)/,

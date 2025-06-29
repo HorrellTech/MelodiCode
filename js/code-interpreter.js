@@ -9,7 +9,7 @@ class CodeInterpreter {
         this.loopStacks = new Map();
         this.effects = new Map();
         this.customSamples = new Map(); // name -> commands
-        
+
         // Default values
         this.defaultVolume = 0.8;
         this.defaultPan = 0;
@@ -26,8 +26,18 @@ class CodeInterpreter {
             this.variables.clear();
             this.customSamples.clear();
 
-            const lines = code.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('//'));
-            
+            // Remove comments (everything after // on each line)
+            const lines = code.split('\n')
+                .map(line => {
+                    const idx = line.indexOf('//');
+                    if (idx !== -1) {
+                        return line.slice(0, idx).trim();
+                    }
+                    return line.trim();
+                })
+                .filter(line => line); // Remove empty lines
+
+
             let currentBlock = null;
             let blockContent = [];
             let inCustomSample = false;
@@ -141,6 +151,11 @@ class CodeInterpreter {
                     return { valid: false, error: 'tone command requires at least frequency/note' };
                 }
                 break;
+            case 'slide':
+                if (parts.length < 4) {
+                    return { valid: false, error: 'slide command requires key1, key2, and timescale' };
+                }
+                break;
             case 'wait':
                 if (parts.length < 2) {
                     return { valid: false, error: 'wait command requires duration' };
@@ -164,7 +179,7 @@ class CodeInterpreter {
                 break;
             case 'loop':
                 if (parts.length < 3) {
-                    return { valid: false, error: 'loop command requires count and block name' };
+                    return { valid: false, error: 'loop command requires count and at least one block name' };
                 }
                 if (isNaN(parseInt(parts[1]))) {
                     return { valid: false, error: 'loop count must be a number' };
@@ -222,6 +237,8 @@ class CodeInterpreter {
                 return this.executeSample(parts, startTime);
             case 'tone':
                 return this.executeTone(parts, startTime);
+            case 'slide':
+                return this.executeSlide(parts, startTime);
             case 'wait':
                 return this.executeWait(parts, startTime);
             case 'play':
@@ -273,7 +290,7 @@ class CodeInterpreter {
             pitch,
             timescale,
             startTime,
-            volume * (params.volume || 1),
+            Math.max(0.001, Number(volume) * (params.volume || 1)),
             pan + (params.pan || 0)
         );
 
@@ -283,9 +300,9 @@ class CodeInterpreter {
     executeTone(parts, startTime) {
         const noteOrFreq = parts[1];
         let duration = this.parseValue(parts[2] || '1');
-        const volume = this.parseValue(parts[3] || this.defaultVolume);
-        const pan = this.parseValue(parts[4] || this.defaultPan);
-        const waveType = parts[5] || 'sine';
+        const volume = this.parseValue(parts[4] || this.defaultVolume);
+        const pan = this.parseValue(parts[5] || this.defaultPan);
+        const waveType = parts[3] || 'sine';
 
         // Convert duration based on BPM (treat duration as beats)
         const durationInSeconds = duration * this.beatDuration;
@@ -312,6 +329,81 @@ class CodeInterpreter {
         return durationInSeconds;
     }
 
+    async executeSlide(parts, startTime) {
+        const key1 = parts[1];
+        const key2 = parts[2];
+        const timescale = this.parseValue(parts[3] || '1');
+        const durationInSeconds = timescale * this.beatDuration;
+
+        // Optional: waveType, volume, pan
+        const waveType = parts[4] || 'sine';
+        const volume = this.parseValue(parts[5] || this.defaultVolume);
+        const pan = this.parseValue(parts[6] || this.defaultPan);
+
+        // Support both note names and frequencies
+        const freq1 = isNaN(key1) ? this.audioEngine.noteToFrequency(key1) : parseFloat(key1);
+        const freq2 = isNaN(key2) ? this.audioEngine.noteToFrequency(key2) : parseFloat(key2);
+
+        const ctx = this.audioEngine.audioContext;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        const panNode = ctx.createStereoPanner();
+
+        // --- Core Fixes Start Here ---
+
+        // 1. Define the absolute start and end times for all scheduling
+        const s = ctx.currentTime + startTime;
+        const e = s + durationInSeconds;
+
+        // 2. Schedule the oscillator frequency changes
+        oscillator.type = waveType;
+        oscillator.frequency.setValueAtTime(freq1, s); // Start at freq1 AT the start time
+        oscillator.frequency.linearRampToValueAtTime(freq2, e); // Slide to freq2 by the end time
+
+        // 3. Schedule the pan value
+        // Instead of panNode.pan.value = pan, we schedule it.
+        panNode.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), s);
+
+        // 4. Create a robust, scheduled gain envelope (ADSR-like)
+        // Remove the immediate gainNode.gain.value = 0 assignment.
+        // All gain changes are now scheduled.
+        const attackTime = 0.01;
+        const releaseTime = 0.1;
+
+        // Ensure we don't have an envelope longer than the sound itself
+        if (durationInSeconds > attackTime + releaseTime) {
+            // Full ADSR envelope
+            gainNode.gain.setValueAtTime(0, s); // Start at 0 gain
+            gainNode.gain.linearRampToValueAtTime(volume, s + attackTime); // Attack
+            gainNode.gain.linearRampToValueAtTime(volume * 0.7, e - releaseTime); // Sustain/Decay
+            gainNode.gain.exponentialRampToValueAtTime(0.001, e); // Release
+        } else {
+            // Quick fade in/out for very short sounds
+            gainNode.gain.setValueAtTime(0, s);
+            gainNode.gain.linearRampToValueAtTime(volume, s + durationInSeconds * 0.5);
+            gainNode.gain.linearRampToValueAtTime(0.001, e);
+        }
+
+        // --- Core Fixes End Here ---
+
+        // Connect the audio graph
+        oscillator.connect(gainNode);
+        gainNode.connect(panNode);
+        panNode.connect(this.audioEngine.eq.low); // Or your main output
+
+        // Schedule the oscillator to start and stop
+        oscillator.start(s);
+        oscillator.stop(e);
+
+        // Track active sources for stopping
+        this.audioEngine.activeSources.add(oscillator);
+        oscillator.addEventListener('ended', () => {
+            this.audioEngine.activeSources.delete(oscillator);
+        });
+
+        return durationInSeconds;
+    }
+
     executeWait(parts, startTime) {
         let duration = this.parseValue(parts[1]);
         // Convert wait duration based on BPM (treat as beats)
@@ -321,7 +413,7 @@ class CodeInterpreter {
     async executePlay(parts, startTime) {
         const blockNames = [];
         const params = {};
-        
+
         // Parse block names and parameters
         for (let i = 1; i < parts.length; i++) {
             const part = parts[i];
@@ -349,18 +441,25 @@ class CodeInterpreter {
 
     async executeLoop(parts, startTime) {
         const count = parseInt(parts[1]);
-        const blockName = parts[2];
-        
-        if (!this.blocks.has(blockName)) {
-            console.warn(`Block '${blockName}' not found`);
-            return 0;
+        const blockNames = parts.slice(2);
+
+        // Validate block names
+        for (const blockName of blockNames) {
+            if (!this.blocks.has(blockName)) {
+                console.warn(`Block '${blockName}' not found`);
+                return 0;
+            }
         }
 
         let totalDuration = 0;
         for (let i = 0; i < count; i++) {
             if (!this.isRunning) break;
-            const duration = await this.executeBlock(blockName, startTime + totalDuration);
-            totalDuration += duration;
+            // Play all blocks simultaneously, just like play
+            const promises = blockNames.map(blockName =>
+                this.executeBlock(blockName, startTime + totalDuration)
+            );
+            const durations = await Promise.all(promises);
+            totalDuration += Math.max(...durations, 0);
         }
 
         return totalDuration;
@@ -434,7 +533,7 @@ class CodeInterpreter {
     stop() {
         this.isRunning = false;
         this.currentPosition = 0;
-        
+
         // Stop audio engine
         if (this.audioEngine) {
             this.audioEngine.stop();
@@ -524,6 +623,10 @@ BLOCKS:
     commands...
 [end]
 
+<sample_block_name>
+    commands...
+<end>
+
 COMMANDS:
 sample <name> [pitch] [timescale] [volume] [pan] [params...]
     - Play an audio sample
@@ -532,11 +635,17 @@ sample <name> [pitch] [timescale] [volume] [pan] [params...]
     - volume: 0-1 (default: 0.8)
     - pan: -1 to 1 (default: 0)
 
-tone <frequency|note> [duration] [volume] [pan] [waveType]
+tone <frequency|note> [duration] [waveType] [volume] [pan]
     - Generate a tone
     - frequency: Hz or note (C4, A#3, etc.)
-    - duration: seconds (default: 1)
-    - waveType: sine, square, sawtooth, triangle
+    - duration: beats (default: 1)
+    - waveType: sine, square, sawtooth, triangle (default: sine)
+    - volume: 0-1 (default: 0.8)
+    - pan: -1 to 1 (default: 0)
+
+slide <key1> <key2> <timescale> [waveType] [volume] [pan]
+    - Play a tone at key1 and slide to key2 over timescale beats (BPM-based)
+    - Example: slide C4 G4 2 sawtooth 0.7 0
 
 wait <duration>
     - Pause for specified seconds
@@ -568,6 +677,7 @@ bpm 130
 sample kick 1 1
 wait 0.5
 tone C4 0.5
+slide C4 G4 2
 [end]
 
 play main volume=0.8 pan=0

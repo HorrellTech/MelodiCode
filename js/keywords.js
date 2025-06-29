@@ -36,10 +36,22 @@ window.melodicodeKeywords = {
     },
     tone: {
         description: "Generate a tone at a given frequency or note.",
-        usage: "tone <frequency|note> [duration] [volume] [pan] [waveType]",
+        usage: "tone <frequency|note> [duration] [wavetype] [volume] [pan]",
         params: [
             { name: "frequency|note", desc: "Frequency in Hz or note name (C4, A#3, etc.)" },
             { name: "duration", desc: "Length in seconds (default: 1)" },
+            { name: "volume", desc: "Volume 0-1 (default: 0.8)" },
+            { name: "pan", desc: "Stereo position -1 to 1 (default: 0)" },
+            { name: "waveType", desc: "sine, square, sawtooth, triangle (default: sine)" }
+        ]
+    },
+    slide: {
+        description: "Slide between two notes over a duration.",
+        usage: "slide <startNote> <endNote> <duration> [wavetype] [volume] [pan]",
+        params: [
+            { name: "startNote", desc: "Starting note (C4, A#3, etc.)" },
+            { name: "endNote", desc: "Ending note (C4, A#3, etc.)" },
+            { name: "duration", desc: "Slide duration in seconds" },
             { name: "volume", desc: "Volume 0-1 (default: 0.8)" },
             { name: "pan", desc: "Stereo position -1 to 1 (default: 0)" },
             { name: "waveType", desc: "sine, square, sawtooth, triangle (default: sine)" }
