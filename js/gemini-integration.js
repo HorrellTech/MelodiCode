@@ -211,7 +211,7 @@ SYNTAX(Remember the order of the parameters, DO NOT MIX THEM UP):
     *tone <frequency|note> [duration] [waveType(sine, sawtooth, triangle, square)] [volume] [pan], 
     *slide <startNote> <endNote> <duration> [waveType(sine, sawtooth, triangle, square)] [volume] [pan],
     *wait <duration>, 
-    *bpm <value>,
+    *bpm <value>
 
 - Play: play <block1> [block2...] [parameters...(volume=0.8, pan=0, etc.)]
 - Loop: loop <count> <block_name> [block2...] (Make sure not to use the same name as an existing sample or block, use a different name)
