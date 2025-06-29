@@ -1,4 +1,28 @@
 window.melodicodeKeywords = {
+    main_block: {
+        description: "Define the main block of commands.",
+        usage: "[main]\n    ...commands...\n[end]\n\nplay main",
+        params: [
+            { name: "blockName", desc: "Name of the main block" },
+            { name: "commands", desc: "Commands to execute in the main block" }
+        ]
+    },
+    custom_block: {
+        description: "Define a custom block of commands.",
+        usage: "[--blockName--]\n    ...commands...\n[end]",
+        params: [
+            { name: "blockName", desc: "Name of the custom block" },
+            { name: "commands", desc: "Commands to execute in the block" }
+        ]
+    },
+    custom_sample: {
+        description: "Define a custom sample block. Sample blocks play all at once when triggered. Like normal blocks, but contain inside <> instead of []",
+        usage: "(<--sampleName-->\n    ...commands...\n<--end-->)",
+        params: [
+            { name: "sampleName", desc: "Name of the custom sample" },
+            { name: "commands", desc: "Commands to generate the sample" }
+        ]
+    },
     sample: {
         description: "Play a built-in or imported sample.",
         usage: "sample <name> [pitch] [timescale] [volume] [pan]",

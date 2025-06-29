@@ -212,6 +212,12 @@ SYNTAX:
 
 - Play: play <block1> [block2...] [parameters...(volume=0.8, pan=0, etc.)]
 
+- You can define custom samples using <sampleName> ... <end> blocks. Use these when asked to create or use custom samples. 
+All commands inside a sample block play simultaneously when triggered with sample <sampleName>. 
+
+When I ask for a sample block, 
+only give me that block with <>, not the full code. And dont use samples in the <sample> block, only use tones and their wavetypes.
+
 SAMPLES: ${context.availableSamples.join(', ')}
 
 CURRENT: ${context.currentCode ? context.currentCode.substring(0, 200) + '...' : 'Empty'}
@@ -223,7 +229,8 @@ REQUIREMENTS:
 4. Use [main] block structure. Make sure [main] block exists and plays the blocks simultaneously.
 5. Make it as complex as you want but ensure it is valid MelodiCode syntax.
 6. When using drums etc, ensure they are played with the other blocks when required, and make sure the drums length matches the melody.
-7. If I ask for only a block, only give me a block, not the full code. If I dont ask for a block specifically, give me the full code.
+7. If I ask for only a block, only give me a block, not the full code. If I dont ask for a block specifically, give me the full code. 
+If its a sample block, use <> instead of [], also with the <end>.
 
 TEMPLATE:
 \`\`\`

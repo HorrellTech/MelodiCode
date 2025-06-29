@@ -8,6 +8,7 @@ class CodeInterpreter {
         this.currentPosition = 0;
         this.loopStacks = new Map();
         this.effects = new Map();
+        this.customSamples = new Map(); // name -> commands
         
         // Default values
         this.defaultVolume = 0.8;
@@ -23,14 +24,41 @@ class CodeInterpreter {
             this.blocks.clear();
             this.globalCommands = [];
             this.variables.clear();
+            this.customSamples.clear();
 
             const lines = code.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('//'));
             
             let currentBlock = null;
             let blockContent = [];
+            let inCustomSample = false;
+            let customSampleName = '';
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
+
+                // Custom sample block start: <blockName>
+                if (line.startsWith('<') && line.endsWith('>') && !line.includes('end')) {
+                    inCustomSample = true;
+                    customSampleName = line.slice(1, -1);
+                    blockContent = [];
+                    continue;
+                }
+
+                // Custom sample block end: <end>
+                if (line === '<end>') {
+                    if (inCustomSample && customSampleName) {
+                        this.customSamples.set(customSampleName, blockContent.slice());
+                        inCustomSample = false;
+                        customSampleName = '';
+                        blockContent = [];
+                    }
+                    continue;
+                }
+
+                if (inCustomSample) {
+                    blockContent.push(line);
+                    continue;
+                }
 
                 // Block start
                 if (line.startsWith('[') && line.endsWith(']') && !line.includes('end')) {
@@ -220,7 +248,7 @@ class CodeInterpreter {
         return 0;
     }
 
-    executeSample(parts, startTime) {
+    async executeSample(parts, startTime) {
         const sampleName = parts[1];
         const pitch = this.parseValue(parts[2] || '1');
         const timescale = this.parseValue(parts[3] || '1');
@@ -229,6 +257,16 @@ class CodeInterpreter {
 
         // Parse additional parameters
         const params = this.parseParameters(parts.slice(6));
+
+        // If sampleName is a custom sample block, play all commands in the block simultaneously
+        if (this.customSamples.has(sampleName)) {
+            const commands = this.customSamples.get(sampleName);
+            // Run all commands in parallel at the same startTime
+            await Promise.all(commands.map(command =>
+                this.executeCommand(command, startTime)
+            ));
+            return 0;
+        }
 
         this.audioEngine.playSample(
             sampleName,
