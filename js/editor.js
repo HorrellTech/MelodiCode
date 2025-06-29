@@ -77,8 +77,8 @@ function getDefinedBlocks() {
 
 CodeMirror.defineSimpleMode("melodicode", {
     start: [
-        // Highlight [block] and [end]
-        { regex: /\[[^\]]+\]/, token: "block" },
+        // Highlight [block] and <block>
+        { regex: /(\[[^\]]+\]|<[^>]+>)/, token: "block" },
 
         // Highlight keywords
         {
@@ -127,10 +127,10 @@ CodeMirror.defineSimpleMode("melodicode", {
         { regex: /\/\/.*/, token: "comment" },
 
         // Operators
-        { regex: /[+\-*/=<>!]+/, token: "operator" },
+        { regex: /[+\-*/=!]+/, token: "operator" },
 
         // Brackets and punctuation
-        { regex: /[\[\]{}();,.]/, token: "bracket" }
+        { regex: /[\[\]{}();,.\<>]/, token: "bracket" }
     ],
     meta: {
         lineComment: "//"

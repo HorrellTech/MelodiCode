@@ -1113,11 +1113,63 @@ input[type="range"]::-moz-range-progress {
     }
 }
 
-.cm-block {
+/*.cm-block {
     color: #ffb347;
     font-weight: bold;
 }
 .cm-sample {
     color: #00e6b8;
     font-weight: bold;
+}*/
+
+/* CodeMirror Theme Integration */
+.CodeMirror {
+    background: var(--primary-bg) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-family-mono), monospace;
+    font-size: var(--font-size-md);
+    border: none;
+}
+
+.CodeMirror-gutters {
+    background: var(--secondary-bg) !important;
+    border-right: 1px solid var(--border-color) !important;
+}
+
+.CodeMirror-linenumber {
+    color: var(--text-secondary) !important;
+}
+
+.CodeMirror-cursor {
+    border-left: 2px solid var(--accent-color) !important;
+}
+
+.CodeMirror-selected {
+    background: rgba(0,212,255,0.18) !important; /* fallback for accent */
+}
+
+.cm-keyword {
+    color: var(--accent-color) !important;
+    font-weight: bold;
+}
+.cm-block {
+    color: var(--accent-hover) !important;
+    font-weight: bold;
+}
+.cm-sample {
+    color: var(--text-secondary) !important;
+    font-weight: bold;
+}
+.cm-number {
+    color: var(--success-color) !important;
+}
+.cm-string {
+    color: #ffffff !important;
+}
+.cm-comment {
+    color: var(--text-muted) !important;
+    font-style: italic;
+}
+.cm-operator, .cm-bracket {
+    color: var(--accent-color) !important;
 }
