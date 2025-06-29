@@ -143,10 +143,19 @@ class GeminiIntegration {
             throw new Error('No response generated');
         }
 
-        // Extract code from the response and validate it
+        // Extract code from the response and fix invalid notes
         const codeMatch = generatedText.match(/```[\s\S]*?```/);
         if (codeMatch) {
-            const code = codeMatch[0].replace(/```/g, '').trim();
+            let code = codeMatch[0].replace(/```/g, '').trim();
+
+            // Fix invalid notes
+            const fixedCode = this.fixInvalidNotes(code);
+            if (fixedCode !== code) {
+                console.log('Fixed invalid notes in generated code');
+                generatedText = generatedText.replace(codeMatch[0], '```\n' + fixedCode + '\n```');
+                code = fixedCode;
+            }
+
             const validation = this.validateGeneratedCode(code);
 
             if (!validation.valid) {
@@ -171,7 +180,7 @@ class GeminiIntegration {
     buildContext() {
         const context = {
             // Current code
-            currentCode: document.getElementById('codeInput').value,
+            currentCode: window.editor.getValue() || '',
 
             // Available samples
             availableSamples: this.getAvailableSamples(),
@@ -194,8 +203,14 @@ class GeminiIntegration {
 
 SYNTAX:
 - Blocks: [name] commands [end]
-- Commands: sample <name>, tone <note> <duration>, wait <duration>, bpm <value>
-- Play: play <block1> [block2...]
+- Commands: set <variable> <value>,
+    sample <name> [pitch] [timescale] [volume] [pan], 
+    tone <frequency|note> [duration] [volume] [pan] [waveType(sine, sawtooth etc.)], 
+    wait <duration>, 
+    bpm <value>,
+    loop <count> <block_name>,
+
+- Play: play <block1> [block2...] [parameters...(volume=0.8, pan=0, etc.)]
 
 SAMPLES: ${context.availableSamples.join(', ')}
 
@@ -207,17 +222,27 @@ REQUIREMENTS:
 3. End with "play main" outside blocks
 4. Use [main] block structure. Make sure [main] block exists and plays the blocks simultaneously.
 5. Make it as complex as you want but ensure it is valid MelodiCode syntax.
+6. When using drums etc, ensure they are played with the other blocks when required, and make sure the drums length matches the melody.
+7. If I ask for only a block, only give me a block, not the full code. If I dont ask for a block specifically, give me the full code.
 
 TEMPLATE:
 \`\`\`
 bpm 120
 [drums]
-sample kick
-wait 0.5
+    sample kick
+    wait 0.5
+[end]
+
+[melody]
+    tone c4 0.5
+    tone e4 0.5
+    tone g4 0.5
+    tone c5 0.5
 [end]
 
 [main]
-play drums
+    play melody // Can play items by themselves
+    play drums melody // Can play drums along with melody
 [end]
 
 play main 
@@ -254,20 +279,88 @@ Request: ${userMessage}`;
             issues.push('Mismatched block start/end pairs');
         }
 
+        // Check and fix invalid notes
+        const invalidNotes = this.findInvalidNotes(code);
+        if (invalidNotes.length > 0) {
+            issues.push(`Invalid notes found: ${invalidNotes.join(', ')}`);
+        }
+
         return {
             valid: issues.length === 0,
             issues: issues
         };
     }
 
+    translateNote(note) {
+        // Handle flat notes (bb, db, eb, gb, ab)
+        const noteTranslations = {
+            'bb': 'a#',  // Bb -> A#
+            'db': 'c#',  // Db -> C#
+            'eb': 'd#',  // Eb -> D#
+            'gb': 'f#',  // Gb -> F#
+            'ab': 'g#'   // Ab -> G#
+        };
+
+        // Extract note name and octave
+        const match = note.toLowerCase().match(/^([a-g]b?)(\d+)?$/);
+        if (!match) return note; // Return original if no match
+
+        const noteName = match[1];
+        const octave = match[2] || '';
+
+        // Translate if needed
+        const translatedNote = noteTranslations[noteName] || noteName;
+
+        return translatedNote + octave;
+    }
+
+    findInvalidNotes(code) {
+        const validNotes = ['c', 'd', 'e', 'f', 'g', 'a', 'b', 'c#', 'd#', 'f#', 'g#', 'a#'];
+        const invalidNotes = [];
+
+        // Find all tone commands
+        const toneMatches = code.match(/tone\s+([a-g]b?\d*)/gi);
+        if (toneMatches) {
+            toneMatches.forEach(match => {
+                const noteMatch = match.match(/tone\s+([a-g]b?\d*)/i);
+                if (noteMatch) {
+                    const fullNote = noteMatch[1].toLowerCase();
+                    const noteOnly = fullNote.replace(/\d+$/, ''); // Remove octave number
+
+                    if (!validNotes.includes(noteOnly) && noteOnly.includes('b')) {
+                        invalidNotes.push(fullNote);
+                    }
+                }
+            });
+        }
+
+        return [...new Set(invalidNotes)]; // Remove duplicates
+    }
+
+    fixInvalidNotes(code) {
+        // Replace invalid flat notes with their sharp equivalents
+        return code.replace(/tone\s+([a-g]b)(\d*)/gi, (match, note, octave) => {
+            const translatedNote = this.translateNote(note + octave);
+            return `tone ${translatedNote}`;
+        });
+    }
+
     getAvailableSamples() {
         const samples = [];
 
-        // Built-in samples
-        const builtInSamples = ['kick', 'snare', 'hihat', 'bass_low', 'bass_mid', 'lead_1', 'pad_1'];
+        // List all built-in samples here:
+        const builtInSamples = [
+            'kick', 'snare', 'hihat', 'hihat_open', 'crash', 'ride',
+            'tom_high', 'tom_mid', 'tom_low', 'clap', 'triangle',
+            'bass_low', 'bass_mid', 'bass_high', 'sub_bass', 'bass_pluck',
+            'lead_1', 'lead_2', 'lead_bright', 'lead_soft', 'synth_pluck',
+            'pad_1', 'pad_warm', 'pad_strings', 'pad_choir',
+            'shaker', 'tambourine', 'cowbell', 'woodblock',
+            'whoosh', 'zap', 'drop', 'rise'
+        ];
         samples.push(...builtInSamples);
 
-        // Imported samples
+        // Add imported samples
         if (window.audioEngine && window.audioEngine.samples) {
             for (const sampleName of window.audioEngine.samples.keys()) {
                 if (!builtInSamples.includes(sampleName)) {
@@ -283,7 +376,7 @@ Request: ${userMessage}`;
         if (!window.codeInterpreter) return [];
 
         try {
-            const code = document.getElementById('codeInput').value;
+            const code = window.editor.getValue() || '';
             window.codeInterpreter.parse(code);
             return Array.from(window.codeInterpreter.blocks.keys());
         } catch (error) {
@@ -430,7 +523,7 @@ Request: ${userMessage}`;
 
     copyToEditor(code) {
         if (confirm('Replace current code with generated code?')) {
-            document.getElementById('codeInput').value = code;
+            window.editor.setValue(code);
             if (window.uiManager) {
                 window.uiManager.updateBlockInspector();
                 window.uiManager.updateStatus('Code copied from Gemini');
@@ -527,7 +620,7 @@ Request: ${userMessage}`;
     }
 
     async suggestImprovement() {
-        const currentCode = document.getElementById('codeInput').value;
+        const currentCode = window.editor.getValue() || '';
         if (!currentCode.trim()) {
             throw new Error('No code to improve');
         }
@@ -537,7 +630,7 @@ Request: ${userMessage}`;
     }
 
     async explainCode() {
-        const currentCode = document.getElementById('codeInput').value;
+        const currentCode = window.editor.getValue() || '';
         if (!currentCode.trim()) {
             throw new Error('No code to explain');
         }
@@ -550,7 +643,7 @@ Request: ${userMessage}`;
         if (!window.codeInterpreter) return 120; // default
 
         try {
-            const code = document.getElementById('codeInput').value;
+            const code = window.editor.getValue() || '';
             window.codeInterpreter.parse(code);
             return window.codeInterpreter.bpm || 120;
         } catch (error) {

@@ -21,7 +21,7 @@ class FileManager {
 
     autoSave() {
         try {
-            const code = document.getElementById('codeInput').value;
+            const code = window.editor ? window.editor.getValue() : '';
             if (code !== this.projectData.code) {
                 this.projectData.code = code;
                 this.projectData.modified = new Date();
@@ -57,10 +57,8 @@ class FileManager {
             created: new Date(),
             modified: new Date()
         };
-        
-        document.getElementById('codeInput').value = this.getTemplateCode();
+        if (window.editor) window.editor.setValue(this.getTemplateCode());
         this.updateProjectInfo();
-        
         return this.projectData;
     }
 
@@ -100,7 +98,7 @@ play main bass volume=0.9`;
 
     async saveProject(filename = null) {
         try {
-            const code = document.getElementById('codeInput').value;
+            const code = window.editor ? window.editor.getValue() : '';
             
             this.projectData.code = code;
             this.projectData.modified = new Date();
@@ -158,7 +156,7 @@ play main bass volume=0.9`;
             }
 
             this.projectData = projectData;
-            document.getElementById('codeInput').value = projectData.code || '';
+            if (window.editor) window.editor.setValue(projectData.code);
             
             // Load project samples if any
             if (projectData.samples && projectData.samples.size > 0) {
@@ -237,15 +235,15 @@ play main bass volume=0.9`;
     }
 
     exportCode() {
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor ? window.editor.getValue() : '';
         const blob = new Blob([code], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        
+
         const a = document.createElement('a');
         a.href = url;
         a.download = this.projectData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.txt';
         a.click();
-        
+
         URL.revokeObjectURL(url);
     }
 
@@ -343,13 +341,13 @@ play main bass volume=0.9`;
 
     updateProjectInfo() {
         // Update UI with project information
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor ? window.editor.getValue() : '';
         this.projectData.code = code;
         this.projectData.modified = new Date();
-        
+
         // Update window title
         document.title = `MelodiCode - ${this.projectData.name}`;
-        
+
         // Trigger block inspector update
         if (window.uiManager) {
             window.uiManager.updateBlockInspector();

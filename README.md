@@ -60,7 +60,7 @@ wait 0.5
 [end]
 
 // Play blocks together
-play drums bass volume=0.9 pan=0
+play drums bass
 ```
 
 ## 📖 Language Reference
@@ -120,9 +120,24 @@ set <variable> <value>
 - Set a variable for reuse in commands
 
 ### Built-in Samples
-- **Drums**: kick, snare, hihat
-- **Bass**: bass_low, bass_mid
-- **Synth**: lead_1, pad_1
+
+**Drums:**  
+kick, snare, hihat, hihat_open, crash, ride, tom_high, tom_mid, tom_low, clap, triangle
+
+**Percussion:**  
+shaker, tambourine, cowbell, woodblock
+
+**Bass:**  
+bass_low, bass_mid, bass_high, sub_bass, bass_pluck
+
+**Synth Leads:**  
+lead_1, lead_2, lead_bright, lead_soft
+
+**Pads:**  
+pad_1, pad_warm, pad_strings, pad_choir
+
+**FX:**  
+whoosh, zap, drop, rise
 
 ## 🎨 Themes
 
@@ -189,16 +204,16 @@ MelodiCode/
 ### Drum Pattern
 ```melodicode
 [basic_beat]
-sample kick 1 1
-wait 0.5
-sample snare 1 1
-wait 0.5
-sample kick 1 1
-wait 0.25
-sample kick 1 1
-wait 0.25
-sample snare 1 1
-wait 0.5
+    sample kick 1 1
+    wait 0.5
+    sample snare 1 1
+    wait 0.5
+    sample kick 1 1
+    wait 0.25
+    sample kick 1 1
+    wait 0.25
+    sample snare 1 1
+    wait 0.5
 [end]
 
 loop 4 basic_beat
@@ -207,14 +222,14 @@ loop 4 basic_beat
 ### Melody with Harmony
 ```melodicode
 [melody]
-tone C4 0.5
-tone E4 0.5
-tone G4 0.5
-tone C5 0.5
+    tone C4 0.5
+    tone E4 0.5
+    tone G4 0.5
+    tone C5 0.5
 [end]
 
 [harmony]
-tone C3 2.0
+    tone C3 2.0
 [end]
 
 play melody harmony volume=0.8
@@ -223,27 +238,27 @@ play melody harmony volume=0.8
 ### Electronic Beat
 ```melodicode
 [kick_pattern]
-sample kick 1 1 0.9
-wait 0.5
-sample kick 1 1 0.6
-wait 0.5
+    sample kick 1 1 0.9
+    wait 0.5
+    sample kick 1 1 0.6
+    wait 0.5
 [end]
 
 [hihat_pattern]
-wait 0.25
-sample hihat 1 1 0.4
-wait 0.25
-sample hihat 1 1 0.4
-wait 0.25
-sample hihat 1 1 0.4
-wait 0.25
+    wait 0.25
+    sample hihat 1 1 0.4
+    wait 0.25
+    sample hihat 1 1 0.4
+    wait 0.25
+    sample hihat 1 1 0.4
+    wait 0.25
 [end]
 
 [bass_drop]
-tone C1 0.1 1.0 0 square
-tone C1 0.1 1.0 0 square
-tone C1 0.3 1.0 0 square
-wait 0.5
+    tone C1 0.1 1.0 0 square
+    tone C1 0.1 1.0 0 square
+    tone C1 0.3 1.0 0 square
+    wait 0.5
 [end]
 
 play kick_pattern hihat_pattern bass_drop
@@ -266,6 +281,121 @@ play kick_pattern hihat_pattern bass_drop
 - Submit pull requests for improvements
 - Follow existing code style and conventions
 
+---
+
+## 🧩 Adding New Built-in Samples
+
+MelodiCode supports expanding its built-in sample library. Here’s how to add new samples and ensure they are available in the UI and Gemini AI assistant:
+
+### 1. **Add the Sample to the Audio Engine**
+
+- Open [`js/audio-engine.js`](js/audio-engine.js).
+- In the `AudioEngine` class, locate the `loadBuiltInSamples()` method.
+- Add your new sample to the `builtInSamples` object, either by generating it programmatically or loading it from a file.
+
+```js
+// js/audio-engine.js [loadBuiltInSamples()]
+// ...existing code...
+'bongo': await this.generateBongo(), // Example: Add a new bongo sample
+// ...existing code...
+```
+
+- Implement the sample generation method if needed (e.g., `generateBongo()`).
+
+### 2. **Update the UI to Display the Sample**
+
+- Open [`js/ui-manager.js`](js/ui-manager.js).
+- In the `populateBuiltInSamplesPanel()` method, add your sample to the appropriate category in the `categories` object.
+
+```js
+// js/ui-manager.js [populateBuiltInSamplesPanel()]
+// ...existing code...
+Percussion: ['shaker', 'tambourine', 'cowbell', 'woodblock', 'bongo'],
+// ...existing code...
+```
+
+- The UI will now show your new sample in the built-in samples panel.
+
+### 3. **Make the Sample Available to Gemini**
+
+- Open [`js/gemini-integration.js`](js/gemini-integration.js).
+- In the `getAvailableSamples()` method, add your new sample to the `builtInSamples` array.
+
+```js
+// js/gemini-integration.js [getAvailableSamples()]
+// ...existing code...
+const builtInSamples = [
+    'kick', 'snare', 'hihat', /* ... */, 'bongo'
+];
+// ...existing code...
+```
+
+- This ensures Gemini is aware of the new sample and can suggest it in generated code.
+
+### 4. **(Optional) Update the Language Reference**
+
+- Add your new sample to the "Built-in Samples" section of this README for documentation.
+
+```markdown
+### Built-in Samples
+
+**Drums:**  
+kick, snare, hihat, hihat_open, crash, ride, tom_high, tom_mid, tom_low, clap, triangle
+
+**Percussion:**  
+shaker, tambourine, cowbell, woodblock
+
+**Bass:**  
+bass_low, bass_mid, bass_high, sub_bass, bass_pluck
+
+**Synth Leads:**  
+lead_1, lead_2, lead_bright, lead_soft
+
+**Pads:**  
+pad_1, pad_warm, pad_strings, pad_choir
+
+**FX:**  
+whoosh, zap, drop, rise
+```
+
+### 5. **Test Your Sample**
+
+- Reload the app in your browser.
+- Confirm the sample appears in the UI and can be played.
+- Ask Gemini to generate code using your new sample (e.g., "Create a drum pattern with bongo").
+
+---
+
+## 🧑‍🏫 Tutorial: Adding a New Built-in Sample
+
+**Example: Add a "bongo" sample**
+
+1. **Audio Engine**:  
+   - Implement `generateBongo()` in `audio-engine.js` or load a bongo sample.
+   - Add `'bongo': await this.generateBongo()` to the `builtInSamples` object.
+
+2. **UI Manager**:  
+   - Add `'bongo'` to the `Percussion` array in `populateBuiltInSamplesPanel()`.
+
+3. **Gemini Integration**:  
+   - Add `'bongo'` to the `builtInSamples` array in `getAvailableSamples()`.
+
+4. **Documentation**:  
+   - Update the README’s built-in samples list.
+
+5. **Test**:  
+   - Reload and verify the sample is available and Gemini can use it.
+
+---
+
+**Tip:**  
+Whenever you add or rename a built-in sample, update all three places:  
+- `audio-engine.js` (for sound generation/loading)  
+- `ui-manager.js` (for UI display)  
+- `gemini-integration.js` (for AI awareness)
+
+---
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -276,15 +406,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Google Gemini for AI-powered music assistance
 - Font Awesome for beautiful icons
 - The open-source music production community
-
-## 🔗 Links
-
-- [Demo](https://your-demo-link.com)
-- [Documentation](https://your-docs-link.com)
-- [GitHub](https://github.com/your-username/melodicode)
-- [Discord Community](https://discord.gg/your-invite)
-
----
-
-**Create music through code. Express yourself algorithmically. Welcome to MelodiCode.**
-A browser based, code based music generator with AI capabilities

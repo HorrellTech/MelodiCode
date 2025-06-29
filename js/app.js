@@ -32,7 +32,14 @@ class MelodiCodeApp {
             // Setup performance monitoring
             this.setupPerformanceMonitoring();
             
-            // Load auto-saved project if available
+            // Initialize CodeMirror, then load auto-save
+            await new Promise(resolve => {
+                window.setupEditor(() => {
+                    resolve();
+                });
+            });
+
+            // Now CodeMirror is ready
             await this.loadAutoSave();
             
             // Hide loading screen
@@ -161,7 +168,7 @@ class MelodiCodeApp {
                 );
                 
                 if (shouldLoad) {
-                    document.getElementById('codeInput').value = autoSave.code;
+                    window.editor.setValue(autoSave.code);
                     this.components.uiManager.updateBlockInspector();
                     this.components.uiManager.updateStatus('Auto-saved project loaded');
                 }
@@ -418,6 +425,59 @@ window.addEventListener('beforeunload', () => {
     if (window.melodiCodeApp) {
         window.melodiCodeApp.cleanup();
     }
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+    // Wait for built-in samples to load
+    if (window.audioEngine && window.audioEngine.loadBuiltInSamples) {
+        await window.audioEngine.loadBuiltInSamples();
+    }
+    if (window.uiManager && window.uiManager.populateBuiltInSamplesPanel) {
+        window.uiManager.populateBuiltInSamplesPanel();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Documentation Modal logic
+    const docsBtn = document.getElementById('docsBtn');
+    const docsModal = document.getElementById('docsModal');
+    const closeDocs = document.getElementById('closeDocs');
+    const docsContent = document.getElementById('docsContent');
+
+    function renderDocs() {
+        const keywords = window.melodicodeKeywords;
+        let html = '<div class="docs-keyword-list">';
+        Object.entries(keywords).forEach(([key, info]) => {
+            html += `
+                <div class="docs-keyword-card">
+                    <h4>${key}</h4>
+                    <div><code>${info.usage}</code></div>
+                    <div>${info.description}</div>
+                    ${info.params && info.params.length ? `
+                        <ul>
+                            ${info.params.map(p => `<li><b>${p.name}</b>: ${p.desc}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+        docsContent.innerHTML = html;
+    }
+
+    docsBtn.addEventListener('click', () => {
+        renderDocs();
+        docsModal.classList.add('show');
+    });
+
+    closeDocs.addEventListener('click', () => {
+        docsModal.classList.remove('show');
+    });
+
+    // Optional: close modal on outside click
+    docsModal.addEventListener('click', (e) => {
+        if (e.target === docsModal) docsModal.classList.remove('show');
+    });
 });
 
 // Make app available globally for debugging

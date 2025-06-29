@@ -81,9 +81,9 @@ class UIManager {
         });
 
         // Code editor
-        document.getElementById('codeInput').addEventListener('input', () => {
+        /*document.getElementById('codeInput').addEventListener('input', () => {
             this.updateBlockInspector();
-        });
+        });*/
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
@@ -173,6 +173,55 @@ class UIManager {
         this.startWaveformAnimation();
     }
 
+    populateBuiltInSamplesPanel() {
+        const panel = document.getElementById('builtinSamples');
+        if (!panel || !window.audioEngine) return;
+
+        // Clear existing content
+        panel.innerHTML = '';
+
+        // Group samples by category
+        const categories = {
+            Drums: ['kick', 'snare', 'hihat', 'hihat_open', 'crash', 'ride', 'tom_high', 'tom_mid', 'tom_low', 'clap'],
+            Bass: ['bass_low', 'bass_mid', 'bass_high', 'sub_bass', 'bass_pluck'],
+            Synth: ['lead_1', 'lead_2', 'lead_bright', 'lead_soft', 'pad_1', 'pad_warm', 'pad_strings', 'pad_choir'],
+            Percussion: ['shaker', 'tambourine', 'cowbell', 'woodblock'],
+            FX: ['whoosh', 'zap', 'drop', 'rise']
+        };
+
+        for (const [cat, sampleNames] of Object.entries(categories)) {
+            const folder = document.createElement('div');
+            folder.className = 'tree-folder';
+            folder.innerHTML = `
+                <div class="tree-item folder">
+                    <i class="fas fa-folder"></i>
+                    <span>${cat}</span>
+                    <i class="fas fa-chevron-down toggle"></i>
+                </div>
+                <div class="tree-children"></div>
+            `;
+            const children = folder.querySelector('.tree-children');
+            for (const name of sampleNames) {
+                if (window.audioEngine.samples.has(name)) {
+                    const item = document.createElement('div');
+                    item.className = 'tree-item file';
+                    item.dataset.sample = name;
+                    item.innerHTML = `
+                        <i class="fas fa-file-audio"></i>
+                        <span>${name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                        <button class="play-sample" data-sample="${name}">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    `;
+                    // Play button event
+                    item.querySelector('.play-sample').onclick = () => window.audioEngine.playSample(name, 1, 1, 0, 0.8, 0);
+                    children.appendChild(item);
+                }
+            }
+            panel.appendChild(folder);
+        }
+    }
+
     startWaveformAnimation() {
         const animate = () => {
             this.drawWaveform();
@@ -216,9 +265,10 @@ class UIManager {
 
     async play() {
         try {
+            this.stop(); // Stop any previous playback
             this.updateStatus('Parsing code...');
             
-            const code = document.getElementById('codeInput').value;
+            const code = window.editor.getValue() || '';
             const parseResult = window.codeInterpreter.parse(code);
             
             if (!parseResult.success) {
@@ -328,12 +378,12 @@ class UIManager {
     }
 
     formatCode() {
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor.getValue() || '';
         const parseResult = window.codeInterpreter.parse(code);
         
         if (parseResult.success) {
             const formatted = window.codeInterpreter.formatCode();
-            document.getElementById('codeInput').value = formatted;
+            window.editor.setValue(formatted);
             this.updateStatus('Code formatted');
         } else {
             this.showError('Cannot format invalid code');
@@ -341,7 +391,7 @@ class UIManager {
     }
 
     validateCode() {
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor.getValue() || '';
         const parseResult = window.codeInterpreter.parse(code);
         
         if (!parseResult.success) {
@@ -358,7 +408,7 @@ class UIManager {
     }
 
     updateBlockInspector() {
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor ? window.editor.getValue() : '';
         const parseResult = window.codeInterpreter.parse(code);
         
         const inspector = document.getElementById('blockInspector');
@@ -393,7 +443,7 @@ class UIManager {
 
     newProject() {
         if (confirm('Create new project? This will clear your current work.')) {
-            document.getElementById('codeInput').value = `// Welcome to MelodiCode!
+            window.editor.setValue(`// Welcome to MelodiCode!
 // Create music using block-based code
 
 [main]
@@ -404,7 +454,7 @@ wait 0.5
 [end]
 
 // Play the main block
-play main`;
+play main`);
             this.updateBlockInspector();
             this.updateStatus('New project created');
         }
@@ -419,7 +469,7 @@ play main`;
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    document.getElementById('codeInput').value = e.target.result;
+                    window.editor.setValue(e.target.result);
                     this.updateBlockInspector();
                     this.updateStatus('Project opened');
                 };
@@ -430,7 +480,7 @@ play main`;
     }
 
     saveProject() {
-        const code = document.getElementById('codeInput').value;
+        const code = window.editor.getValue() || '';
         const blob = new Blob([code], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -443,7 +493,7 @@ play main`;
 
     async exportWAV() {
         try {
-            this.updateStatus('Exporting WAV...');
+            /*this.updateStatus('Exporting WAV...');
             const duration = 30; // seconds
             const wavBlob = await window.audioEngine.exportWAV(duration);
             
@@ -454,7 +504,8 @@ play main`;
             a.click();
             URL.revokeObjectURL(url);
             
-            this.updateStatus('WAV exported');
+            this.updateStatus('WAV exported');*/
+            this.showError('WAV export is not yet implemented');
         } catch (error) {
             this.showError('Export failed: ' + error.message);
         }

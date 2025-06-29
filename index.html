@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +9,17 @@
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="css/mobile.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
 </head>
+
 <body>
     <div id="app" class="app">
         <!-- Top Toolbar -->
@@ -34,7 +44,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="toolbar-section transport-controls">
                 <button class="btn btn-transport" id="playBtn">
                     <i class="fas fa-play"></i>
@@ -49,13 +59,16 @@
                     <span id="currentTime">00:00</span> / <span id="totalTime">00:00</span>
                 </div>
             </div>
-            
+
             <div class="toolbar-section">
                 <div class="master-volume">
                     <label>Master</label>
                     <input type="range" id="masterVolume" min="0" max="100" value="75">
                     <span id="masterVolumeValue">75%</span>
                 </div>
+                <button class="btn btn-sm" id="docsBtn">
+                    <i class="fas fa-book"></i> Docs
+                </button>
                 <button class="btn btn-sm" id="settingsBtn">
                     <i class="fas fa-cog"></i>
                 </button>
@@ -81,7 +94,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="panel-section">
                     <h3>Built-in Samples</h3>
                     <div class="file-tree" id="builtinSamples">
@@ -115,7 +128,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="tree-folder" data-folder="bass">
                             <div class="tree-item folder">
                                 <i class="fas fa-folder"></i>
@@ -139,7 +152,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="tree-folder" data-folder="synth">
                             <div class="tree-item folder">
                                 <i class="fas fa-folder"></i>
@@ -172,6 +185,13 @@
                 <div class="editor-header">
                     <h3>MelodiCode Editor</h3>
                     <div class="editor-actions">
+                        <!--div class="editor-header">
+                            <select id="cmThemeSelect">
+                                <option value="default">Default</option>
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div-->
                         <button class="btn btn-sm" id="formatCode">
                             <i class="fas fa-code"></i> Format
                         </button>
@@ -181,49 +201,10 @@
                     </div>
                 </div>
                 <div class="code-editor">
-                    <textarea id="codeInput" placeholder="// Welcome to MelodiCode!
-// Create music using block-based code
-
-[main]
-sample kick 1 1 // sample_name pitch timescale
-tone C4 1        // tone pitch
-wait 0.5         // wait in seconds
-sample snare 1 1
-wait 0.5
-[end]
-
-[bass]
-tone C2 2
-wait 1
-tone G2 2
-wait 1
-[end]
-
-// Play multiple blocks together
-play main bass volume=0.8 pan=0
-">// Welcome to MelodiCode!
-// Create music using block-based code
-
-[main]
-sample kick 1 1 // sample_name pitch timescale
-tone C4 1        // tone pitch
-wait 0.5         // wait in seconds
-sample snare 1 1
-wait 0.5
-[end]
-
-[bass]
-tone C2 2
-wait 1
-tone G2 2
-wait 1
-[end]
-
-// Play multiple blocks together
-play main bass volume=0.8 pan=0
-</textarea>
+                    <div id="codeEditor"></div>
                 </div>
                 
+                <div id="codeHintPanel" class="code-hint-panel empty"></div>
                 <!-- Master Effects Panel -->
                 <div class="master-effects">
                     <h4>Master Effects</h4>
@@ -268,14 +249,14 @@ play main bass volume=0.8 pan=0
                     <h3>Waveform</h3>
                     <canvas id="waveformCanvas" width="300" height="150"></canvas>
                 </div>
-                
+
                 <div class="panel-section">
                     <h3>Block Inspector</h3>
                     <div id="blockInspector">
                         <p>Select a block to view details</p>
                     </div>
                 </div>
-                
+
                 <div class="panel-section">
                     <h3>Output</h3>
                     <div id="outputLog" class="output-log">
@@ -291,6 +272,12 @@ play main bass volume=0.8 pan=0
                 <span id="statusMessage">Ready</span>
             </div>
             <div class="status-section">
+                <!-- Buy Me A Coffee button -->
+                <a href="https://www.buymeacoffee.com/SynKrown" target="_blank" class="bmc-button"
+                    style="margin-left:16px;vertical-align:middle;display:inline-block;">
+                    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="30"
+                        style="vertical-align:middle;">
+                </a>
                 <button class="btn btn-sm gemini-btn" id="geminiBtn">
                     <i class="fas fa-robot"></i> Ask Gemini
                 </button>
@@ -313,7 +300,7 @@ play main bass volume=0.8 pan=0
                     <button class="tab-btn" data-tab="gemini">Gemini AI</button>
                     <button class="tab-btn" data-tab="audio">Audio</button>
                 </div>
-                
+
                 <div class="tab-content active" id="themeTab">
                     <h3>Theme Settings</h3>
                     <div class="form-group">
@@ -330,7 +317,7 @@ play main bass volume=0.8 pan=0
                         <input type="color" id="accentColor" value="#00d4ff">
                     </div>
                 </div>
-                
+
                 <div class="tab-content" id="geminiTab">
                     <h3>Google Gemini Integration</h3>
                     <div class="form-group">
@@ -346,7 +333,7 @@ play main bass volume=0.8 pan=0
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="tab-content" id="audioTab">
                     <h3>Audio Settings</h3>
                     <div class="form-group">
@@ -395,12 +382,14 @@ play main bass volume=0.8 pan=0
                     <div id="chatHistory" class="chat-history">
                         <div class="chat-message ai">
                             <div class="message-content">
-                                Hello! I'm here to help you create music with MelodiCode. I understand the block-based syntax and can generate code for songs. What would you like to create?
+                                Hello! I'm here to help you create music with MelodiCode. I understand the block-based
+                                syntax and can generate code for songs. What would you like to create?
                             </div>
                         </div>
                     </div>
                     <div class="chat-input-container">
-                        <textarea id="chatInput" placeholder="Ask me to generate a song, explain syntax, or help with your code..."></textarea>
+                        <textarea id="chatInput"
+                            placeholder="Ask me to generate a song, explain syntax, or help with your code..."></textarea>
                         <button id="sendChat" class="btn">
                             <i class="fas fa-paper-plane"></i>
                         </button>
@@ -410,7 +399,23 @@ play main bass volume=0.8 pan=0
         </div>
     </div>
 
+    <div id="docsModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>MelodiCode Documentation</h2>
+                <button class="close-btn" id="closeDocs">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="docsContent">
+                <!-- Documentation will be injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
+    <script src="js/keywords.js"></script>
+    <script src="js/editor.js"></script>
     <script src="js/audio-engine.js"></script>
     <script src="js/code-interpreter.js"></script>
     <script src="js/ui-manager.js"></script>
@@ -419,4 +424,5 @@ play main bass volume=0.8 pan=0
     <script src="js/mobile.js"></script>
     <script src="js/app.js"></script>
 </body>
+
 </html>
