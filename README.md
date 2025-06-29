@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="logo.png" alt="MelodiCode Logo" width="600"/>
+</p>
 # MelodiCode - Code-Based Music Generator
 
 A powerful web-based Digital Audio Workstation (DAW) that lets you create music using a custom block-based programming language. Compose, arrange, and produce music through code with real-time audio processing, AI assistance, and professional-grade effects.

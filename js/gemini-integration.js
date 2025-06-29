@@ -178,9 +178,12 @@ class GeminiIntegration {
     }
 
     buildContext() {
+        const sendCode = document.getElementById('sendCurrentCodeToGemini');
+        const includeCode = sendCode ? sendCode.checked : true;
+
         const context = {
-            // Current code
-            currentCode: window.editor.getValue() || '',
+            // Only include current code if checkbox is checked
+            currentCode: includeCode ? (window.editor.getValue() || '') : '',
 
             // Available samples
             availableSamples: this.getAvailableSamples(),
