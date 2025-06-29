@@ -42,7 +42,7 @@ class AudioEngine {
     setupMasterChain() {
         // Master gain
         this.masterGain = this.audioContext.createGain();
-        this.masterGain.gain.value = 0.75;
+        this.masterGain.gain.value = 0.5;
 
         // EQ
         this.eq.low = this.audioContext.createBiquadFilter();
@@ -717,6 +717,8 @@ class AudioEngine {
         gainNode.connect(panNode);
         panNode.connect(this.eq.low);
 
+        source.gainNode = gainNode;
+
         const startTime = this.audioContext.currentTime + when;
         source.start(startTime);
 
@@ -728,6 +730,9 @@ class AudioEngine {
 
         // Add fade out to prevent clicks
         gainNode.gain.setValueAtTime(volume, startTime);
+        // Instead of abrupt ramp, use setTargetAtTime for a smooth fade
+        const fadeOutStart = startTime + (buffer.duration / timescale) - 0.03;
+        gainNode.gain.setTargetAtTime(0.0001, fadeOutStart, 0.015);
         gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + (buffer.duration / timescale) - 0.01);
 
         return source;

@@ -574,3 +574,25 @@
 .mobile-arrow:not(.show-on-left):not(.show-on-center):not(.show-on-right) {
     display: none;
 }
+
+/* Always show modals above all panels and nav on mobile */
+@media (max-width: 768px) {
+  .modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+  }
+  .modal-content {
+    z-index: 10000 !important;
+  }
+  .modal:not(.active):not(.show) {
+    display: none !important;
+  }
+}

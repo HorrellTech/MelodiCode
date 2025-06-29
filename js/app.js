@@ -486,23 +486,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const geminiModal = document.getElementById('geminiModal');
     if (geminiBtn && geminiModal) {
         geminiBtn.addEventListener('click', () => {
-            geminiModal.style.display = 'block';
             geminiModal.classList.add('active');
+            geminiModal.style.display = 'flex'; // Use flex for centering
         });
     }
     // Optional: close modal on background tap
     geminiModal?.addEventListener('click', (e) => {
         if (e.target === geminiModal) {
-            geminiModal.style.display = 'center';
             geminiModal.classList.remove('active');
+            geminiModal.style.display = 'none';
         }
     });
 });
 
 // Close Gemini modal on close button
 document.getElementById('closeGemini')?.addEventListener('click', () => {
-    document.getElementById('geminiModal').style.display = 'none';
-    document.getElementById('geminiModal').classList.remove('active');
+    const geminiModal = document.getElementById('geminiModal');
+    geminiModal.classList.remove('active');
+    geminiModal.style.display = 'none';
 });
 
 // Make app available globally for debugging

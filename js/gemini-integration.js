@@ -86,7 +86,7 @@ class GeminiIntegration {
         if (!message) return;
 
         if (!this.isConfigured) {
-            this.showError('Please configure your Gemini API key in settings first.');
+            this.showError('Please configure your Gemini API key in settings first. If you have already configured it, please reload the page.');
             return;
         }
 
