@@ -480,6 +480,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Show Gemini modal on button tap/click
+document.addEventListener('DOMContentLoaded', () => {
+    const geminiBtn = document.getElementById('geminiBtn');
+    const geminiModal = document.getElementById('geminiModal');
+    if (geminiBtn && geminiModal) {
+        geminiBtn.addEventListener('click', () => {
+            geminiModal.style.display = 'block';
+            geminiModal.classList.add('active');
+        });
+    }
+    // Optional: close modal on background tap
+    geminiModal?.addEventListener('click', (e) => {
+        if (e.target === geminiModal) {
+            geminiModal.style.display = 'center';
+            geminiModal.classList.remove('active');
+        }
+    });
+});
+
+// Close Gemini modal on close button
+document.getElementById('closeGemini')?.addEventListener('click', () => {
+    document.getElementById('geminiModal').style.display = 'none';
+    document.getElementById('geminiModal').classList.remove('active');
+});
+
 // Make app available globally for debugging
 window.MelodiCode = {
     app: window.melodiCodeApp,
