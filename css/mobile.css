@@ -596,3 +596,16 @@
     display: none !important;
   }
 }
+
+@media (max-width: 768px) {
+  .modal.show,
+  .modal.active {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999 !important;
+  }
+  .modal:not(.show):not(.active) {
+    display: none !important;
+  }
+}
