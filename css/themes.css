@@ -64,6 +64,678 @@
     --warning-color: #f39c12;
 }
 
+/* Solarized Dark Theme */
+:root[data-theme="solarized-dark"] {
+    --primary-bg: #002b36;
+    --secondary-bg: #073642;
+    --tertiary-bg: #586e75;
+    --accent-color: #b58900;
+    --accent-hover: #a07d00;
+    --text-primary: #eee8d5;
+    --text-secondary: #93a1a1;
+    --text-muted: #657b83;
+    --border-color: #073642;
+    --error-color: #dc322f;
+    --success-color: #859900;
+    --warning-color: #b58900;
+}
+
+/* Solarized Light Theme */
+:root[data-theme="solarized-light"] {
+    --primary-bg: #fdf6e3;
+    --secondary-bg: #eee8d5;
+    --tertiary-bg: #93a1a1;
+    --accent-color: #268bd2;
+    --accent-hover: #1867a0;
+    --text-primary: #073642;
+    --text-secondary: #586e75;
+    --text-muted: #839496;
+    --border-color: #93a1a1;
+    --error-color: #dc322f;
+    --success-color: #859900;
+    --warning-color: #b58900;
+}
+
+/* Dracula Theme */
+:root[data-theme="dracula"] {
+    --primary-bg: #282a36;
+    --secondary-bg: #44475a;
+    --tertiary-bg: #6272a4;
+    --accent-color: #bd93f9;
+    --accent-hover: #a382d6;
+    --text-primary: #f8f8f2;
+    --text-secondary: #6272a4;
+    --text-muted: #44475a;
+    --border-color: #44475a;
+    --error-color: #ff5555;
+    --success-color: #50fa7b;
+    --warning-color: #f1fa8c;
+}
+
+/* Gruvbox Theme */
+:root[data-theme="gruvbox"] {
+    --primary-bg: #282828;
+    --secondary-bg: #3c3836;
+    --tertiary-bg: #504945;
+    --accent-color: #fabd2f;
+    --accent-hover: #d79921;
+    --text-primary: #ebdbb2;
+    --text-secondary: #bdae93;
+    --text-muted: #928374;
+    --border-color: #665c54;
+    --error-color: #fb4934;
+    --success-color: #b8bb26;
+    --warning-color: #fabd2f;
+}
+
+/* Nord Theme */
+:root[data-theme="nord"] {
+    --primary-bg: #2e3440;
+    --secondary-bg: #3b4252;
+    --tertiary-bg: #434c5e;
+    --accent-color: #88c0d0;
+    --accent-hover: #5e81ac;
+    --text-primary: #eceff4;
+    --text-secondary: #d8dee9;
+    --text-muted: #4c566a;
+    --border-color: #4c566a;
+    --error-color: #bf616a;
+    --success-color: #a3be8c;
+    --warning-color: #ebcb8b;
+}
+
+/* Monokai Theme */
+:root[data-theme="monokai"] {
+    --primary-bg: #272822;
+    --secondary-bg: #383830;
+    --tertiary-bg: #49483e;
+    --accent-color: #f92672;
+    --accent-hover: #d81b60;
+    --text-primary: #f8f8f2;
+    --text-secondary: #a6e22e;
+    --text-muted: #75715e;
+    --border-color: #75715e;
+    --error-color: #fd971f;
+    --success-color: #a6e22e;
+    --warning-color: #e6db74;
+}
+
+/* Pastel Theme */
+:root[data-theme="pastel"] {
+    --primary-bg: #f8fafc;
+    --secondary-bg: #e0e7ef;
+    --tertiary-bg: #c7d2fe;
+    --accent-color: #a5b4fc;
+    --accent-hover: #818cf8;
+    --text-primary: #374151;
+    --text-secondary: #64748b;
+    --text-muted: #a1a1aa;
+    --border-color: #cbd5e1;
+    --error-color: #fca5a5;
+    --success-color: #bbf7d0;
+    --warning-color: #fde68a;
+}
+
+/* Iron Man Theme */
+:root[data-theme="ironman"] {
+    --primary-bg: #1a1816;
+    --secondary-bg: #2d2320;
+    --tertiary-bg: #7c1c13;
+    --accent-color: #e63900;
+    --accent-hover: #b22202;
+    --text-primary: #ffe066;
+    --text-secondary: #ffd700;
+    --text-muted: #bfa76f;
+    --border-color: #e63900;
+    --error-color: #ff4f4f;
+    --success-color: #00e6e6;
+    --warning-color: #ffd700;
+}
+
+/* Hulk Theme */
+:root[data-theme="hulk"] {
+    --primary-bg: #232d1a;
+    --secondary-bg: #355c2d;
+    --tertiary-bg: #4f772d;
+    --accent-color: #7ed957;
+    --accent-hover: #5cb85c;
+    --text-primary: #eaffd0;
+    --text-secondary: #b7e4c7;
+    --text-muted: #a3b18a;
+    --border-color: #7ed957;
+    --error-color: #d7263d;
+    --success-color: #7ed957;
+    --warning-color: #ffe066;
+}
+
+/* Captain America Theme */
+:root[data-theme="captainamerica"] {
+    --primary-bg: #0a2239;
+    --secondary-bg: #1d3557;
+    --tertiary-bg: #457b9d;
+    --accent-color: #e63946;
+    --accent-hover: #b22234;
+    --text-primary: #f1faee;
+    --text-secondary: #a8dadc;
+    --text-muted: #457b9d;
+    --border-color: #e63946;
+    --error-color: #e63946;
+    --success-color: #457b9d;
+    --warning-color: #f1faee;
+}
+
+/* Spider-Man Theme */
+:root[data-theme="spiderman"] {
+    --primary-bg: #1a1a2e;
+    --secondary-bg: #16213e;
+    --tertiary-bg: #0f3460;
+    --accent-color: #e94560;
+    --accent-hover: #b9133b;
+    --text-primary: #f5f6fa;
+    --text-secondary: #a7bbc7;
+    --text-muted: #393e46;
+    --border-color: #e94560;
+    --error-color: #e94560;
+    --success-color: #21e6c1;
+    --warning-color: #ffd460;
+}
+
+/* Black Panther Theme */
+:root[data-theme="blackpanther"] {
+    --primary-bg: #0d0d0d;
+    --secondary-bg: #22223b;
+    --tertiary-bg: #4a4e69;
+    --accent-color: #9f86c0;
+    --accent-hover: #5f4b8b;
+    --text-primary: #f2e9e4;
+    --text-secondary: #c9ada7;
+    --text-muted: #a3a3a3;
+    --border-color: #9f86c0;
+    --error-color: #e07a5f;
+    --success-color: #81b29a;
+    --warning-color: #f2cc8f;
+}
+
+/* Thor Theme */
+:root[data-theme="thor"] {
+    --primary-bg: #23272a;
+    --secondary-bg: #2c3e50;
+    --tertiary-bg: #34495e;
+    --accent-color: #f1c40f;
+    --accent-hover: #e1b12c;
+    --text-primary: #ecf0f1;
+    --text-secondary: #bdc3c7;
+    --text-muted: #95a5a6;
+    --border-color: #f1c40f;
+    --error-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+}
+
+/* Doctor Strange Theme */
+:root[data-theme="doctorstrange"] {
+    --primary-bg: #1b263b;
+    --secondary-bg: #415a77;
+    --tertiary-bg: #778da9;
+    --accent-color: #f9c74f;
+    --accent-hover: #f9844a;
+    --text-primary: #f1faee;
+    --text-secondary: #a8dadc;
+    --text-muted: #457b9d;
+    --border-color: #f9c74f;
+    --error-color: #e63946;
+    --success-color: #43aa8b;
+    --warning-color: #f9c74f;
+}
+
+/* Guardians of the Galaxy Theme */
+:root[data-theme="guardians"] {
+    --primary-bg: #2d0036;
+    --secondary-bg: #3a0ca3;
+    --tertiary-bg: #7209b7;
+    --accent-color: #f72585;
+    --accent-hover: #b5179e;
+    --text-primary: #f1faee;
+    --text-secondary: #bdb2ff;
+    --text-muted: #a3a3a3;
+    --border-color: #f72585;
+    --error-color: #ff006e;
+    --success-color: #3a86ff;
+    --warning-color: #ffbe0b;
+}
+
+/* Rainy Day Theme */
+:root[data-theme="rainy"] {
+    --primary-bg: #232946;
+    --secondary-bg: #393e60;
+    --tertiary-bg: #4f5d75;
+    --accent-color: #3da9fc;
+    --accent-hover: #2176ae;
+    --text-primary: #eaf6fb;
+    --text-secondary: #b8c1ec;
+    --text-muted: #7b8fa1;
+    --border-color: #3da9fc;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Sunny Theme */
+:root[data-theme="sunny"] {
+    --primary-bg: #fffbe6;
+    --secondary-bg: #fff3b0;
+    --tertiary-bg: #ffe066;
+    --accent-color: #ffd60a;
+    --accent-hover: #f7b801;
+    --text-primary: #2d2d2d;
+    --text-secondary: #bfae48;
+    --text-muted: #bdb76b;
+    --border-color: #ffd60a;
+    --error-color: #e85d04;
+    --success-color: #43aa8b;
+    --warning-color: #ffd60a;
+}
+
+/* Thunderstorm Theme */
+:root[data-theme="thunderstorm"] {
+    --primary-bg: #22223b;
+    --secondary-bg: #4a4e69;
+    --tertiary-bg: #9a8c98;
+    --accent-color: #f2e94e;
+    --accent-hover: #ffd700;
+    --text-primary: #f8f7ff;
+    --text-secondary: #c9ada7;
+    --text-muted: #a3a3a3;
+    --border-color: #f2e94e;
+    --error-color: #ff595e;
+    --success-color: #8ac926;
+    --warning-color: #f2e94e;
+}
+
+/* Snowy Theme */
+:root[data-theme="snowy"] {
+    --primary-bg: #e0eafc;
+    --secondary-bg: #cfdef3;
+    --tertiary-bg: #b5c6e0;
+    --accent-color: #7fafff;
+    --accent-hover: #3e8ed0;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #7b8fa1;
+    --border-color: #7fafff;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Foggy Theme */
+:root[data-theme="foggy"] {
+    --primary-bg: #dbe2e8;
+    --secondary-bg: #bfc9d1;
+    --tertiary-bg: #a3aab7;
+    --accent-color: #8e9aaf;
+    --accent-hover: #6c7a89;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #7b8fa1;
+    --border-color: #8e9aaf;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Sunset Theme */
+:root[data-theme="sunset"] {
+    --primary-bg: #2d132c;
+    --secondary-bg: #801336;
+    --tertiary-bg: #c72c41;
+    --accent-color: #f95738;
+    --accent-hover: #ee964b;
+    --text-primary: #fff1e6;
+    --text-secondary: #f8ad9d;
+    --text-muted: #bdbdbd;
+    --border-color: #f95738;
+    --error-color: #ff595e;
+    --success-color: #8ac926;
+    --warning-color: #ffd166;
+}
+
+/* Aurora Theme */
+:root[data-theme="aurora"] {
+    --primary-bg: #1a2238;
+    --secondary-bg: #263159;
+    --tertiary-bg: #6bcbef;
+    --accent-color: #38ef7d;
+    --accent-hover: #11998e;
+    --text-primary: #f5f6fa;
+    --text-secondary: #a7bbc7;
+    --text-muted: #393e46;
+    --border-color: #38ef7d;
+    --error-color: #ff595e;
+    --success-color: #8ac926;
+    --warning-color: #ffd166;
+}
+
+/* Ocean Calm Theme */
+:root[data-theme="ocean-calm"] {
+    --primary-bg: #e0f7fa;
+    --secondary-bg: #b2ebf2;
+    --tertiary-bg: #80deea;
+    --accent-color: #26c6da;
+    --accent-hover: #0097a7;
+    --text-primary: #01579b;
+    --text-secondary: #4dd0e1;
+    --text-muted: #81d4fa;
+    --border-color: #26c6da;
+    --error-color: #ff8a80;
+    --success-color: #80cbc4;
+    --warning-color: #ffd180;
+}
+
+/* Forest Mist Theme */
+:root[data-theme="forest-mist"] {
+    --primary-bg: #e8f5e9;
+    --secondary-bg: #c8e6c9;
+    --tertiary-bg: #a5d6a7;
+    --accent-color: #66bb6a;
+    --accent-hover: #388e3c;
+    --text-primary: #1b5e20;
+    --text-secondary: #81c784;
+    --text-muted: #a5d6a7;
+    --border-color: #66bb6a;
+    --error-color: #ef9a9a;
+    --success-color: #81c784;
+    --warning-color: #fff59d;
+}
+
+/* Lavender Dream Theme */
+:root[data-theme="lavender-dream"] {
+    --primary-bg: #f3e8ff;
+    --secondary-bg: #e0c3fc;
+    --tertiary-bg: #b388ff;
+    --accent-color: #a259f7;
+    --accent-hover: #7c43bd;
+    --text-primary: #4e148c;
+    --text-secondary: #b388ff;
+    --text-muted: #c3aed6;
+    --border-color: #a259f7;
+    --error-color: #ffb3c6;
+    --success-color: #b9fbc0;
+    --warning-color: #ffe066;
+}
+
+/* Zen Garden Theme */
+:root[data-theme="zen-garden"] {
+    --primary-bg: #f5fbef;
+    --secondary-bg: #e0f2e9;
+    --tertiary-bg: #b2dfdb;
+    --accent-color: #8bc34a;
+    --accent-hover: #689f38;
+    --text-primary: #33691e;
+    --text-secondary: #aed581;
+    --text-muted: #c8e6c9;
+    --border-color: #8bc34a;
+    --error-color: #ffcdd2;
+    --success-color: #aed581;
+    --warning-color: #fff9c4;
+}
+
+/* Soft Peach Theme */
+:root[data-theme="soft-peach"] {
+    --primary-bg: #fff5e6;
+    --secondary-bg: #ffe0b2;
+    --tertiary-bg: #ffccbc;
+    --accent-color: #ffab91;
+    --accent-hover: #ff7043;
+    --text-primary: #bf360c;
+    --text-secondary: #ffab91;
+    --text-muted: #ffe0b2;
+    --border-color: #ffab91;
+    --error-color: #ff8a80;
+    --success-color: #c8e6c9;
+    --warning-color: #fff59d;
+}
+
+/* Black Mesa Theme */
+:root[data-theme="black-mesa"] {
+    --primary-bg: #181a1b;
+    --secondary-bg: #232526;
+    --tertiary-bg: #313335;
+    --accent-color: #ff6600;
+    --accent-hover: #cc5200;
+    --text-primary: #f2f2f2;
+    --text-secondary: #bdbdbd;
+    --text-muted: #757575;
+    --border-color: #ff6600;
+    --error-color: #e53935;
+    --success-color: #43a047;
+    --warning-color: #ffa726;
+}
+
+/* Lambda Core Theme */
+:root[data-theme="lambda-core"] {
+    --primary-bg: #232b2b;
+    --secondary-bg: #394240;
+    --tertiary-bg: #4e5d5b;
+    --accent-color: #f9a602;
+    --accent-hover: #c97d02;
+    --text-primary: #e0e0e0;
+    --text-secondary: #bdbdbd;
+    --text-muted: #757575;
+    --border-color: #f9a602;
+    --error-color: #e53935;
+    --success-color: #43a047;
+    --warning-color: #ffd54f;
+}
+
+/* Xen Theme */
+:root[data-theme="xen"] {
+    --primary-bg: #1b0033;
+    --secondary-bg: #2e0854;
+    --tertiary-bg: #3d1e6d;
+    --accent-color: #7fffd4;
+    --accent-hover: #40e0d0;
+    --text-primary: #e0e7ff;
+    --text-secondary: #bdbdbd;
+    --text-muted: #a3a3a3;
+    --border-color: #7fffd4;
+    --error-color: #ff5e5e;
+    --success-color: #7fffd4;
+    --warning-color: #ffe066;
+}
+
+/* City 17 Theme */
+:root[data-theme="city17"] {
+    --primary-bg: #2d333b;
+    --secondary-bg: #3e4451;
+    --tertiary-bg: #4b535e;
+    --accent-color: #b0bec5;
+    --accent-hover: #78909c;
+    --text-primary: #eceff1;
+    --text-secondary: #b0bec5;
+    --text-muted: #78909c;
+    --border-color: #b0bec5;
+    --error-color: #e57373;
+    --success-color: #81c784;
+    --warning-color: #ffd54f;
+}
+
+/* Ravenholm Theme */
+:root[data-theme="ravenholm"] {
+    --primary-bg: #2c1a1a;
+    --secondary-bg: #3e2723;
+    --tertiary-bg: #5d4037;
+    --accent-color: #ff7043;
+    --accent-hover: #bf360c;
+    --text-primary: #fbe9e7;
+    --text-secondary: #bcaaa4;
+    --text-muted: #a1887f;
+    --border-color: #ff7043;
+    --error-color: #d32f2f;
+    --success-color: #8bc34a;
+    --warning-color: #ffd54f;
+}
+
+/* RuptureFarms Theme */
+:root[data-theme="rupturefarms"] {
+    --primary-bg: #2a1e1a;
+    --secondary-bg: #3d2b24;
+    --tertiary-bg: #5a3c2e;
+    --accent-color: #e67e22;
+    --accent-hover: #ba6c1e;
+    --text-primary: #f5e9d6;
+    --text-secondary: #c9b89a;
+    --text-muted: #8d7966;
+    --border-color: #e67e22;
+    --error-color: #c0392b;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+}
+
+/* Paramonia Theme */
+:root[data-theme="paramonia"] {
+    --primary-bg: #1d2b1a;
+    --secondary-bg: #2e4a2a;
+    --tertiary-bg: #3e6b3a;
+    --accent-color: #7ed957;
+    --accent-hover: #4e944f;
+    --text-primary: #eaffd0;
+    --text-secondary: #b7e4c7;
+    --text-muted: #a3b18a;
+    --border-color: #7ed957;
+    --error-color: #d7263d;
+    --success-color: #7ed957;
+    --warning-color: #ffe066;
+}
+
+/* Scrabania Theme */
+:root[data-theme="scrabania"] {
+    --primary-bg: #3b2c1a;
+    --secondary-bg: #5a4324;
+    --tertiary-bg: #7c5e36;
+    --accent-color: #e1a95f;
+    --accent-hover: #b97a3a;
+    --text-primary: #f7e9d2;
+    --text-secondary: #d6bfa6;
+    --text-muted: #b49f86;
+    --border-color: #e1a95f;
+    --error-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+}
+
+/* Monsaic Lines Theme */
+:root[data-theme="monsaic-lines"] {
+    --primary-bg: #1a1e2a;
+    --secondary-bg: #232946;
+    --tertiary-bg: #393e60;
+    --accent-color: #3da9fc;
+    --accent-hover: #2176ae;
+    --text-primary: #eaf6fb;
+    --text-secondary: #b8c1ec;
+    --text-muted: #7b8fa1;
+    --border-color: #3da9fc;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Necrum Theme */
+:root[data-theme="necrum"] {
+    --primary-bg: #2e223a;
+    --secondary-bg: #4a3c5a;
+    --tertiary-bg: #6e5a7c;
+    --accent-color: #b589d6;
+    --accent-hover: #7c43bd;
+    --text-primary: #f3e8ff;
+    --text-secondary: #e0c3fc;
+    --text-muted: #b388ff;
+    --border-color: #b589d6;
+    --error-color: #ffb3c6;
+    --success-color: #b9fbc0;
+    --warning-color: #ffe066;
+}
+
+/* Spirited Away Theme */
+:root[data-theme="spirited-away"] {
+    --primary-bg: #f3f7f0;
+    --secondary-bg: #cbe7e2;
+    --tertiary-bg: #f7d6bf;
+    --accent-color: #e07a5f;
+    --accent-hover: #b85c38;
+    --text-primary: #2d2d2d;
+    --text-secondary: #6c757d;
+    --text-muted: #bdbdbd;
+    --border-color: #e07a5f;
+    --error-color: #e63946;
+    --success-color: #43aa8b;
+    --warning-color: #ffd166;
+}
+
+/* My Neighbor Totoro Theme */
+:root[data-theme="totoro"] {
+    --primary-bg: #eaf6e7;
+    --secondary-bg: #b7e4c7;
+    --tertiary-bg: #a5c9a1;
+    --accent-color: #6a994e;
+    --accent-hover: #386641;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #7b8fa1;
+    --border-color: #6a994e;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Princess Mononoke Theme */
+:root[data-theme="mononoke"] {
+    --primary-bg: #f4f1ee;
+    --secondary-bg: #c9ada7;
+    --tertiary-bg: #9a8c98;
+    --accent-color: #e63946;
+    --accent-hover: #a4161a;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #7b8fa1;
+    --border-color: #e63946;
+    --error-color: #e63946;
+    --success-color: #43aa8b;
+    --warning-color: #ffd166;
+}
+
+/* Howl's Moving Castle Theme */
+:root[data-theme="howl"] {
+    --primary-bg: #f0e6ef;
+    --secondary-bg: #b8bedd;
+    --tertiary-bg: #f7cac9;
+    --accent-color: #ffb4a2;
+    --accent-hover: #e5989b;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #bdbdbd;
+    --border-color: #ffb4a2;
+    --error-color: #ef476f;
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+}
+
+/* Kiki's Delivery Service Theme */
+:root[data-theme="kiki"] {
+    --primary-bg: #fdf6e3;
+    --secondary-bg: #ffe5ec;
+    --tertiary-bg: #b8c1ec;
+    --accent-color: #e07a5f;
+    --accent-hover: #9d0208;
+    --text-primary: #22223b;
+    --text-secondary: #4a4e69;
+    --text-muted: #bdbdbd;
+    --border-color: #e07a5f;
+    --error-color: #e63946;
+    --success-color: #43aa8b;
+    --warning-color: #ffd166;
+}
+
 /* Theme-specific visual effects */
 
 /* Neon theme glow effects */
