@@ -52,22 +52,27 @@ Use the built-in Google Gemini assistant(with your own API key) to generate song
 ```melodicode
 // Define a drum pattern
 [drums]
-sample kick 1 1 0.8     // kick drum at normal pitch and volume
-wait 0.5                // wait half a second
-sample snare 1 1 0.7    // snare drum
-wait 0.5
+    sample kick 1 1 0.8     // kick drum at normal pitch and volume
+    wait 0.5                // wait half a second
+    sample snare 1 1 0.7    // snare drum
+    wait 0.5
 [end]
 
 // Define a bass line
 [bass]
-tone C2 0.5 0.8         // C2 note for 0.5 seconds
-wait 0.5
-tone G2 0.5 0.8         // G2 note
-wait 0.5
+    tone C2 0.5 0.8         // C2 note for 0.5 seconds
+    wait 0.5
+    tone G2 0.5 0.8         // G2 note
+    wait 0.5
 [end]
 
 // Play blocks together
-play drums bass
+[main]
+    play drums bass
+[end]
+
+// Play the main block
+play main
 ```
 
 ## 📖 Language Reference
@@ -223,7 +228,11 @@ MelodiCode/
     wait 0.5
 [end]
 
-loop 4 basic_beat
+[main]
+    loop 4 basic_beat
+[end]
+
+play main
 ```
 
 ### Melody with Harmony
@@ -239,7 +248,11 @@ loop 4 basic_beat
     tone C3 2.0
 [end]
 
-play melody harmony volume=0.8
+[main]
+    play melody harmony
+[end]
+
+play main
 ```
 
 ### Electronic Beat
@@ -268,7 +281,11 @@ play melody harmony volume=0.8
     wait 0.5
 [end]
 
-play kick_pattern hihat_pattern bass_drop
+[main]
+    play kick_pattern hihat_pattern bass_drop
+[end]
+
+play main
 ```
 
 ## 🛠️ Development
@@ -476,15 +493,4 @@ play main
 Request: ${userMessage}
 ```
 
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Web Audio API for real-time audio processing
-- Google Gemini for AI-powered music assistance
-- Font Awesome for beautiful icons
-- The open-source music production community
+Go back to basic documentation [documentation.md](documentation.md).

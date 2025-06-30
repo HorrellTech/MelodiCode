@@ -438,47 +438,34 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Documentation Modal logic
     const docsBtn = document.getElementById('docsBtn');
     const docsModal = document.getElementById('docsModal');
     const closeDocs = document.getElementById('closeDocs');
     const docsContent = document.getElementById('docsContent');
 
-    function renderDocs() {
-        const keywords = window.melodicodeKeywords;
-        let html = '<div class="docs-keyword-list">';
-        Object.entries(keywords).forEach(([key, info]) => {
-            html += `
-                <div class="docs-keyword-card">
-                    <h4>${key}</h4>
-                    <div><code>${info.usage}</code></div>
-                    <div>${info.description}</div>
-                    ${info.params && info.params.length ? `
-                        <ul>
-                            ${info.params.map(p => `<li><b>${p.name}</b>: ${p.desc}</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                </div>
-            `;
-        });
-        html += '</div>';
-        docsContent.innerHTML = html;
-    }
-
-    // Helper to load and render documentation.md
-    async function loadDocsMarkdown() {
-        renderDocs(); // Render keywords first
+    // Helper to load and render markdown into the docs modal
+    async function loadMarkdown(file) {
         try {
-            const md = await fetch('documentation.md').then(r => r.text());
+            const md = await fetch(file).then(r => r.text());
             docsContent.innerHTML = marked.parse(md);
-            docsContent.classList.add('welcome-modal-body'); // Add style class
+            docsContent.classList.add('welcome-modal-body');
+            // Intercept README.md and documentation.md links
+            docsContent.querySelectorAll('a').forEach(a => {
+                const href = a.getAttribute('href');
+                if (href && (href.endsWith('README.md') || href.endsWith('documentation.md'))) {
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        loadMarkdown(href);
+                    });
+                }
+            });
         } catch {
             docsContent.innerHTML = '<p>Documentation not found.</p>';
         }
     }
 
     docsBtn.addEventListener('click', async () => {
-        await loadDocsMarkdown();
+        await loadMarkdown('documentation.md');
         docsModal.classList.add('show');
     });
 
@@ -486,7 +473,6 @@ document.addEventListener('DOMContentLoaded', () => {
         docsModal.classList.remove('show');
     });
 
-    // Optional: close modal on outside click
     docsModal.addEventListener('click', (e) => {
         if (e.target === docsModal) docsModal.classList.remove('show');
     });

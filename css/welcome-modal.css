@@ -164,8 +164,8 @@
     overflow-y: auto;
 }
 .welcome-modal-body pre, .welcome-modal-body code {
-    background: #181a2b;
-    color: #00d4ff;
+    background: var(--primary-bg);
+    color: var(--accent-hover);
     border-radius: 6px;
     padding: 0.2em 0.5em;
     font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
@@ -187,4 +187,10 @@
 }
 #docsModal .welcome-modal-body {
     padding: 2rem 2.5rem 2rem 2.5rem;
+}
+#docsModal .welcome-modal-body {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
 }
