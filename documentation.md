@@ -1,3 +1,4 @@
+<!-- YOUTUBE_VIDEO: eSzeYRZbuXw -->
 # MelodiCode Programming Guide
 
 MelodiCode lets you create music using a simple, block-based code language. This guide covers everything from basic syntax to advanced features like slides, effects, and multi-block arrangements.

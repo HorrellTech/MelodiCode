@@ -448,6 +448,21 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const md = await fetch(file).then(r => r.text());
             docsContent.innerHTML = marked.parse(md);
+            if (md.includes('<!-- YOUTUBE_VIDEO: eSzeYRZbuXw -->')) {
+                const iframe = document.createElement('iframe');
+                iframe.width = "100%";
+                iframe.height = "315";
+                iframe.src = "https://www.youtube.com/embed/eSzeYRZbuXw?si=MW3OzgpRRH4sbmcn";
+                iframe.title = "YouTube video player";
+                iframe.frameBorder = "0";
+                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+                iframe.referrerPolicy = "strict-origin-when-cross-origin";
+                iframe.allowFullscreen = true;
+
+                // Insert at the top of the docs modal content
+                docsContent.insertBefore(iframe, docsContent.firstChild);
+            }
+
             docsContent.classList.add('welcome-modal-body');
             // Intercept README.md and documentation.md links
             docsContent.querySelectorAll('a').forEach(a => {
