@@ -465,8 +465,20 @@ document.addEventListener('DOMContentLoaded', () => {
         docsContent.innerHTML = html;
     }
 
-    docsBtn.addEventListener('click', () => {
-        renderDocs();
+    // Helper to load and render documentation.md
+    async function loadDocsMarkdown() {
+        renderDocs(); // Render keywords first
+        try {
+            const md = await fetch('documentation.md').then(r => r.text());
+            docsContent.innerHTML = marked.parse(md);
+            docsContent.classList.add('welcome-modal-body'); // Add style class
+        } catch {
+            docsContent.innerHTML = '<p>Documentation not found.</p>';
+        }
+    }
+
+    docsBtn.addEventListener('click', async () => {
+        await loadDocsMarkdown();
         docsModal.classList.add('show');
     });
 

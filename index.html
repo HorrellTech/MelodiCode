@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/welcome-modal.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap"
@@ -15,6 +16,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
@@ -447,16 +449,44 @@
         </div>
     </div>
 
+    <!-- Documentation Modal -->
     <div id="docsModal" class="modal">
         <div class="modal-content large">
             <div class="modal-header">
-                <h2>MelodiCode Documentation</h2>
+                <h2>MelodiCode Syntax</h2>
+                <button class="btn" id="openWelcomeFromDocs">
+                    <i class="fas fa-home"></i> MelodiCode Syntax Documentation
+                </button>
                 <button class="close-btn" id="closeDocs">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body" id="docsContent">
                 <!-- Documentation will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Modal -->
+    <div id="welcomeModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>MelodiCode Documentation</h2>
+                <button class="close-btn" id="closeWelcome">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="welcomeDocsContent" style="max-height:60vh;overflow:auto;">
+                <!-- Documentation will be injected here -->
+            </div>
+            <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+                <label style="font-size:14px;">
+                    <input type="checkbox" id="showWelcomeOnStartup" checked>
+                    Show this screen on startup
+                </label>
+                <button class="btn" id="openDocsFromWelcome">
+                    <i class="fas fa-book"></i> Back To Syntax
+                </button>
             </div>
         </div>
     </div>
@@ -470,6 +500,7 @@
     <script src="js/file-manager.js"></script>
     <script src="js/gemini-integration.js"></script>
     <script src="js/mobile.js"></script>
+    <!--script src="js/welcome-modal.js"></script-->
     <script src="js/app.js"></script>
 </body>
 

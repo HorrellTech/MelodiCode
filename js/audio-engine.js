@@ -697,7 +697,7 @@ class AudioEngine {
         return buffer;
     }
 
-    playSample(sampleName, pitch = 1, timescale = 1, when = 0, volume = 1, pan = 0) {
+    playSample(sampleName, pitch = 1, timescale = 1, when = 0, volume = 1, pan = 0, outputNode = null) {
         if (!this.samples.has(sampleName)) {
             console.warn(`Sample '${sampleName}' not found`);
             return;
@@ -715,7 +715,7 @@ class AudioEngine {
 
         source.connect(gainNode);
         gainNode.connect(panNode);
-        panNode.connect(this.eq.low);
+        panNode.connect(outputNode || this.eq.low);
 
         source.gainNode = gainNode;
 
@@ -738,7 +738,7 @@ class AudioEngine {
         return source;
     }
 
-    generateTone(frequency, duration = 1, waveType = 'sine', when = 0, volume = 1, pan = 0) {
+    generateTone(frequency, duration = 1, waveType = 'sine', when = 0, volume = 1, pan = 0, outputNode = null) {
         // Validate inputs
         if (!frequency || isNaN(frequency) || frequency <= 0) {
             console.warn(`Invalid frequency: ${frequency}, using 440 Hz`);
@@ -765,7 +765,7 @@ class AudioEngine {
 
         oscillator.connect(gainNode);
         gainNode.connect(panNode);
-        panNode.connect(this.eq.low);
+        panNode.connect(outputNode || this.eq.low);
 
         const startTime = this.audioContext.currentTime + when;
         const endTime = startTime + duration;

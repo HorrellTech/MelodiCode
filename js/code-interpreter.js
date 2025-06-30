@@ -25,6 +25,7 @@ class CodeInterpreter {
             this.globalCommands = [];
             this.variables.clear();
             this.customSamples.clear();
+            this.effects.clear();
 
             // Remove comments (everything after // on each line)
             const lines = code.split('\n')
@@ -42,6 +43,7 @@ class CodeInterpreter {
             let blockContent = [];
             let inCustomSample = false;
             let customSampleName = '';
+            let blockEffects = [];
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
@@ -70,9 +72,32 @@ class CodeInterpreter {
                     continue;
                 }
 
-                // Block start
-                if (line.startsWith('[') && line.endsWith(']') && !line.includes('end')) {
+                // Block start (uncomment if effects dont work)
+                /*if (line.startsWith('[') && line.endsWith(']') && !line.includes('end')) {
                     const blockName = line.slice(1, -1);
+                    currentBlock = blockName;
+                    blockContent = [];
+                    continue;
+                }*/
+
+                // Block start with effects: [block] (effect...) (effect2...)
+                const blockHeaderMatch = line.match(/^\[([^\]]+)\](.*)$/);
+                if (blockHeaderMatch && !line.includes('end')) {
+                    const blockName = blockHeaderMatch[1].trim();
+                    const effectsPart = blockHeaderMatch[2].trim();
+                    blockEffects = [];
+                    // Find all (effect ...) groups
+                    const effectRegex = /\(([^\)]+)\)/g;
+                    let match;
+                    while ((match = effectRegex.exec(effectsPart)) !== null) {
+                        const effectParts = match[1].trim().split(/\s+/);
+                        const effectType = effectParts[0];
+                        const params = effectParts.slice(1);
+                        blockEffects.push({ type: effectType, params });
+                    }
+                    if (blockEffects.length > 0) {
+                        this.effects.set(blockName, blockEffects);
+                    }
                     currentBlock = blockName;
                     blockContent = [];
                     continue;
@@ -236,15 +261,15 @@ class CodeInterpreter {
         }
     }
 
-    async executeCommand(command, startTime) {
+    async executeCommand(command, startTime, effectNodes = []) {
         const parts = command.split(/\s+/);
         const cmd = parts[0];
 
         switch (cmd) {
             case 'sample':
-                return this.executeSample(parts, startTime);
+                return this.executeSample(parts, startTime, effectNodes);
             case 'tone':
-                return this.executeTone(parts, startTime);
+                return this.executeTone(parts, startTime, effectNodes);
             case 'slide':
                 return this.executeSlide(parts, startTime);
             case 'sidechain':
@@ -275,7 +300,7 @@ class CodeInterpreter {
         return 0;
     }
 
-    async executeSample(parts, startTime) {
+    async executeSample(parts, startTime, effectNodes = []) {
         const sampleName = parts[1];
         const pitch = this.parseValue(parts[2] || '1');
         const timescale = this.parseValue(parts[3] || '1');
@@ -295,19 +320,25 @@ class CodeInterpreter {
             return 0;
         }
 
+        // Instead of connecting to eq.low, connect to effect chain if present
+        let outputNode = this.audioEngine.eq.low;
+        if (effectNodes && effectNodes.length > 0) {
+            outputNode = effectNodes[0];
+        }
         this.audioEngine.playSample(
             sampleName,
             pitch,
             timescale,
             startTime,
             Math.max(0.001, Number(volume) * (params.volume || 1)),
-            pan + (params.pan || 0)
+            pan + (params.pan || 0),
+            outputNode
         );
 
         return 0; // Samples don't add to timing by default
     }
 
-    executeTone(parts, startTime) {
+    executeTone(parts, startTime, effectNodes = []) {
         const noteOrFreq = parts[1];
         let duration = this.parseValue(parts[2] || '1');
         const volume = this.parseValue(parts[4] || this.defaultVolume);
@@ -327,13 +358,18 @@ class CodeInterpreter {
             frequency = parseFloat(noteOrFreq);
         }
 
+        let outputNode = this.audioEngine.eq.low;
+        if (effectNodes && effectNodes.length > 0) {
+            outputNode = effectNodes[0];
+        }
         this.audioEngine.generateTone(
             frequency,
             durationInSeconds,
             waveType,
             startTime,
             volume * (params.volume || 1),
-            pan + (params.pan || 0)
+            pan + (params.pan || 0),
+            outputNode
         );
 
         return durationInSeconds;
@@ -554,10 +590,70 @@ class CodeInterpreter {
         const commands = this.blocks.get(blockName);
         let currentTime = 0;
 
+        // --- EFFECT CHAIN PATCH START ---
+        let effectInputNode = this.audioEngine.eq.low; // Default output
+        if (this.effects.has(blockName) && this.audioEngine) {
+            const ctx = this.audioEngine.audioContext;
+            let lastNode = null;
+            let dryWetNodes = [];
+            for (const effect of this.effects.get(blockName)) {
+                if (effect.type === 'reverb') {
+                    // Create reverb node
+                    const reverb = ctx.createConvolver();
+                    if (this.audioEngine.reverb && this.audioEngine.reverb.buffer) {
+                        reverb.buffer = this.audioEngine.reverb.buffer;
+                    }
+                    // Dry/wet mix
+                    const wetGain = ctx.createGain();
+                    wetGain.gain.value = 0.5;
+                    const dryGain = ctx.createGain();
+                    dryGain.gain.value = 0.5;
+                    dryWetNodes.push({wet: reverb, wetGain, dryGain});
+                    lastNode = {wet: reverb, wetGain, dryGain};
+                } else if (effect.type === 'delay') {
+                    // Create delay node
+                    const delay = ctx.createDelay();
+                    delay.delayTime.value = parseFloat(effect.params[0]) || 0.3;
+                    // Dry/wet mix
+                    const wetGain = ctx.createGain();
+                    wetGain.gain.value = 0.5;
+                    const dryGain = ctx.createGain();
+                    dryGain.gain.value = 0.5;
+                    dryWetNodes.push({wet: delay, wetGain, dryGain});
+                    lastNode = {wet: delay, wetGain, dryGain};
+                }
+                // Add more effects as needed
+            }
+            // Build the chain: connect all wet nodes in series, dry always goes to output
+            if (dryWetNodes.length > 0) {
+                // Connect wet chain
+                for (let i = 0; i < dryWetNodes.length - 1; i++) {
+                    dryWetNodes[i].wet.connect(dryWetNodes[i].wetGain);
+                    dryWetNodes[i].wetGain.connect(dryWetNodes[i + 1].wet);
+                }
+                // Last wet node to output
+                const last = dryWetNodes[dryWetNodes.length - 1];
+                last.wet.connect(last.wetGain);
+                last.wetGain.connect(effectInputNode);
+                // All dry nodes to output
+                dryWetNodes.forEach(node => node.dryGain.connect(effectInputNode));
+                // The input for all sources should be the *first* dryWetNode
+                effectInputNode = {
+                    connect: (src) => {
+                        // src is a node (e.g. gainNode or panNode)
+                        src.connect(dryWetNodes[0].wet);
+                        src.connect(dryWetNodes[0].dryGain);
+                    }
+                };
+            }
+        }
+        // --- EFFECT CHAIN PATCH END ---
+
+        // Patch: pass effectInputNode to executeCommand
         for (const command of commands) {
             if (!this.isRunning) break;
-
-            const duration = await this.executeCommand(command, startTime + currentTime);
+            // If effectInputNode is a function, pass it as outputNode
+            const duration = await this.executeCommand(command, startTime + currentTime, effectInputNode);
             currentTime += duration;
         }
 
