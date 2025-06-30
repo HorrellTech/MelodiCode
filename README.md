@@ -78,11 +78,72 @@ play main
 ## 📖 Language Reference
 
 ### Block Definition
+
+Blocks are the main way to organize and structure your music code in MelodiCode.  
+A block groups together a sequence of commands (such as playing tones, samples, or other blocks) that will be executed in order.  
+Blocks are defined using square brackets with a name, starting with `[block_name]` and must be closed with `[end]`. The `[main]` block is like the master channel to be played.
+
+- You can define as many blocks as you want.
+- Blocks can be played individually or together using the `play` command.
+- The `[main]` block is typically used as the entry point for your song.
+
+**Syntax:**
 ```melodicode
 [block_name]
     // Commands go here
 [end]
 ```
+
+**Example:**
+```melodicode
+[melody]
+    tone C4 0.5
+    wait 0.25
+    tone E4 0.5
+[end]
+
+[main]
+    play melody
+[end]
+
+play main
+```
+
+### 🥁 Sample Blocks
+
+Sample blocks let you define custom sounds by grouping multiple commands (usually tones) that play **simultaneously** when triggered as a sample.  
+They use angle brackets `<sample_name>` and `<end>` instead of square brackets.
+
+**How it works:**  
+- All commands inside a sample block are played at the same time, creating layered or complex sounds.
+- You can trigger your custom sample anywhere you would use a built-in sample, using the `sample` command.
+
+**Syntax:**
+```melodicode
+<sample_name>
+    // commands (e.g., tones) to play together
+<end>
+```
+
+**Example:**
+```melodicode
+<bass_drum>
+    tone C2 0.2 sine 0.8
+    tone C3 0.1 square 0.3
+<end>
+
+[main]
+    sample bass_drum
+    wait 0.5
+    sample bass_drum
+[end]
+
+play main
+```
+This will play a custom bass drum sound (made of two tones) twice, with a short pause in between.
+
+> **Tip:**  
+> Use sample blocks to create your own drum sounds, layered synths, or any effect where you want multiple tones to play at the same time!
 
 ### Commands
 
