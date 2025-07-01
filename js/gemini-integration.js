@@ -211,7 +211,11 @@ SYNTAX(Remember the order of the parameters, DO NOT MIX THEM UP):
     *tone <frequency|note> [duration] [waveType(sine, sawtooth, triangle, square)] [volume] [pan], 
     *slide <startNote> <endNote> <duration> [waveType(sine, sawtooth, triangle, square)] [volume] [pan],
     *wait <duration>, 
-    *bpm <value>
+    *bpm <value>,
+    *pattern <sampleName> <pattern> (e.g., pattern kick "1-0-1-0-" or "x-x---x-"),
+    *sequence <baseName> <sample1> <sample2> ... (e.g., sequence drums kick snare hihat snare),
+    *if <variable> <operator> <value> ... endif,
+    *for <variable> <start> <end> ... endfor
 
 - Play: play <block1> [block2...] [parameters...(volume=0.8, pan=0, etc.)]
 - Loop: loop <count> <block_name> [block2...] (Make sure not to use the same name as an existing sample or block, use a different name)

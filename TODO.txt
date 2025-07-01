@@ -1,0 +1,4 @@
+- get if statements and for loops working
+- get midi export working
+- get stem export working
+- 

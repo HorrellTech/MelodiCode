@@ -17,6 +17,9 @@ class CodeInterpreter {
         this.defaultTimescale = 1;
         this.bpm = 120; // Default BPM
         this.beatDuration = 60 / this.bpm;
+
+        this.forLoopStacks = new Map();
+        this.conditionalBlocks = new Map();
     }
 
     parse(code) {
@@ -218,6 +221,16 @@ class CodeInterpreter {
                     return { valid: false, error: 'loop count must be a number' };
                 }
                 break;
+            case 'pattern':
+                if (parts.length < 3) {
+                    return { valid: false, error: 'pattern command requires name and pattern string' };
+                }
+                break;
+            case 'sequence':
+                if (parts.length < 3) {
+                    return { valid: false, error: 'sequence command requires name and step pattern' };
+                }
+                break;
             case 'set':
                 if (parts.length < 3) {
                     return { valid: false, error: 'set command requires variable name and value' };
@@ -227,6 +240,20 @@ class CodeInterpreter {
                 if (parts.length < 3) {
                     return { valid: false, error: 'effect command requires effect type and parameters' };
                 }
+                break;
+            case 'if':
+                if (parts.length < 4) {
+                    return { valid: false, error: 'if statement requires variable, operator, and value' };
+                }
+                break;
+            case 'for':
+                if (parts.length < 4) {
+                    return { valid: false, error: 'for loop requires variable, start, and end values' };
+                }
+                break;
+            case 'endif':
+            case 'endfor':
+                // No additional validation needed
                 break;
             default:
                 return { valid: false, error: `Unknown command: ${cmd}` };
@@ -286,6 +313,10 @@ class CodeInterpreter {
                 return this.executeEffect(parts, startTime);
             case 'bpm':
                 return this.executeBPM(parts);
+            case 'pattern':
+                return this.executePattern(parts, startTime);
+            case 'sequence':
+                return this.executeSequence(parts, startTime);
             default:
                 console.warn(`Unknown command: ${cmd}`);
                 return 0;
@@ -298,6 +329,109 @@ class CodeInterpreter {
         this.beatDuration = 60 / this.bpm;
         console.log(`BPM set to ${this.bpm}, beat duration: ${this.beatDuration}s`);
         return 0;
+    }
+
+    async executePattern(parts, startTime, effectNodes = []) {
+        const patternName = parts[1];
+        const patternString = parts.slice(2).join(' '); // e.g., "1-0-1-0-" or "x-x---x-"
+
+        // Parse pattern string and schedule samples/tones based on pattern
+        const steps = patternString.split('-');
+        let currentTime = 0;
+        const stepDuration = this.beatDuration / 4; // 16th notes
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i].trim();
+            if (step === '1' || step === 'x' || step === 'X') {
+                // Trigger the pattern sound
+                await this.executeCommand(`sample ${patternName}`, startTime + currentTime, effectNodes);
+            }
+            currentTime += stepDuration;
+        }
+
+        return currentTime;
+    }
+
+    async executeSequence(parts, startTime, effectNodes = []) {
+        const sampleName = parts[1];
+        const steps = parts.slice(2);
+
+        let currentTime = 0;
+        const stepDuration = this.beatDuration / 4;
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            if (step !== '-' && step !== '0') {
+                await this.executeCommand(`sample ${step}`, startTime + currentTime, effectNodes);
+            }
+            currentTime += stepDuration;
+        }
+
+        return currentTime;
+    }
+
+    async executeIf(parts, startTime, commands, currentIndex) {
+        const variable = parts[1];
+        const operator = parts[2];
+        const value = this.parseValue(parts[3]);
+        const varValue = this.parseValue(variable);
+
+        let condition = false;
+        switch (operator) {
+            case '>': condition = varValue > value; break;
+            case '<': condition = varValue < value; break;
+            case '==': condition = varValue == value; break;
+            case '!=': condition = varValue != value; break;
+            case '>=': condition = varValue >= value; break;
+            case '<=': condition = varValue <= value; break;
+        }
+
+        // Find matching endif
+        let endifIndex = this.findMatchingEnd(commands, currentIndex, 'if', 'endif');
+
+        if (condition) {
+            // Execute commands between if and endif
+            return await this.executeCommandBlock(commands, currentIndex + 1, endifIndex, startTime);
+        }
+
+        return { duration: 0, nextIndex: endifIndex + 1 };
+    }
+
+    async executeFor(parts, startTime, commands, currentIndex) {
+        const variable = parts[1];
+        const start = this.parseValue(parts[2]);
+        const end = this.parseValue(parts[3]);
+
+        let totalDuration = 0;
+        const endforIndex = this.findMatchingEnd(commands, currentIndex, 'for', 'endfor');
+
+        for (let i = start; i <= end; i++) {
+            this.variables.set(variable, i);
+            const result = await this.executeCommandBlock(commands, currentIndex + 1, endforIndex, startTime + totalDuration);
+            totalDuration += result.duration;
+        }
+
+        return { duration: totalDuration, nextIndex: endforIndex + 1 };
+    }
+
+    findMatchingEnd(commands, startIndex, startKeyword, endKeyword) {
+        let depth = 1;
+        for (let i = startIndex + 1; i < commands.length; i++) {
+            const cmd = commands[i].split(/\s+/)[0];
+            if (cmd === startKeyword) depth++;
+            if (cmd === endKeyword) depth--;
+            if (depth === 0) return i;
+        }
+        return commands.length - 1;
+    }
+
+    async executeCommandBlock(commands, startIndex, endIndex, startTime) {
+        let currentTime = 0;
+        for (let i = startIndex; i < endIndex; i++) {
+            const duration = await this.executeCommand(commands[i], startTime + currentTime);
+            currentTime += duration;
+        }
+        return { duration: currentTime };
     }
 
     async executeSample(parts, startTime, effectNodes = []) {
@@ -649,15 +783,59 @@ class CodeInterpreter {
         }
         // --- EFFECT CHAIN PATCH END ---
 
-        // Patch: pass effectInputNode to executeCommand
-        for (const command of commands) {
-            if (!this.isRunning) break;
-            // If effectInputNode is a function, pass it as outputNode
-            const duration = await this.executeCommand(command, startTime + currentTime, effectInputNode);
-            currentTime += duration;
+        // Store original BPM to restore later
+        const originalBPM = this.bpm;
+        const originalBeatDuration = this.beatDuration;
+
+        try {
+            // Process commands with control flow awareness
+            let i = 0;
+            while (i < commands.length) {
+                const command = commands[i];
+                const parts = command.split(/\s+/);
+                const cmd = parts[0];
+
+                if (cmd === 'if') {
+                    const result = await this.executeIf(parts, startTime + currentTime, commands, i);
+                    currentTime += result.duration;
+                    i = result.nextIndex;
+                } else if (cmd === 'for') {
+                    const result = await this.executeFor(parts, startTime + currentTime, commands, i);
+                    currentTime += result.duration;
+                    i = result.nextIndex;
+                } else if (cmd === 'pattern') {
+                    const duration = await this.executePattern(parts, startTime + currentTime);
+                    currentTime += duration;
+                    i++;
+                } else if (cmd === 'sequence') {
+                    const duration = await this.executeSequence(parts, startTime + currentTime);
+                    currentTime += duration;
+                    i++;
+                } else {
+                    const duration = await this.executeCommand(command, startTime + currentTime, effectInputNode);
+                    currentTime += duration;
+                    i++;
+                }
+            }
+        } finally {
+            // Restore original BPM after block execution
+            this.bpm = originalBPM;
+            this.beatDuration = originalBeatDuration;
         }
 
         return currentTime;
+    }
+
+    findMatchingEndInArray(commands, startIndex, startKeyword, endKeyword) {
+        let depth = 1;
+        for (let i = startIndex + 1; i < commands.length; i++) {
+            const parts = commands[i].split(/\s+/);
+            const cmd = parts[0];
+            if (cmd === startKeyword) depth++;
+            if (cmd === endKeyword) depth--;
+            if (depth === 0) return i;
+        }
+        return commands.length - 1;
     }
 
     parseValue(value) {
@@ -735,7 +913,6 @@ class CodeInterpreter {
 
     estimateDuration(blockName = 'main', visited = new Set()) {
         if (!this.blocks.has(blockName)) return 0;
-        // Only use visited for direct recursion protection, not for loop/play
         if (visited.has(blockName)) return 0;
         visited.add(blockName);
 
@@ -744,9 +921,11 @@ class CodeInterpreter {
         let beatDuration = 60 / bpm;
 
         const commands = this.blocks.get(blockName);
-        for (const command of commands) {
+        for (let i = 0; i < commands.length; i++) {
+            const command = commands[i];
             const parts = command.split(/\s+/);
             const cmd = parts[0];
+
             switch (cmd) {
                 case 'wait':
                     totalBeats += parseFloat(parts[1]) || 0;
@@ -760,31 +939,66 @@ class CodeInterpreter {
                     beatDuration = 60 / bpm;
                     break;
                 case 'play': {
-                    // Play blocks in parallel - they don't add sequential time
-                    // The play command itself takes as long as its longest block
                     let maxDuration = 0;
-                    for (let i = 1; i < parts.length; i++) {
-                        if (!parts[i].includes('=')) {
-                            const blockDuration = this.estimateDuration(parts[i], new Set(visited));
+                    for (let j = 1; j < parts.length; j++) {
+                        if (!parts[j].includes('=')) {
+                            const blockDuration = this.estimateDuration(parts[j], new Set(visited));
                             maxDuration = Math.max(maxDuration, blockDuration);
                         }
                     }
-                    // Convert back to beats and add to timeline
                     totalBeats += maxDuration / beatDuration;
                     break;
                 }
                 case 'loop': {
                     const count = parseInt(parts[1]) || 1;
-                    // Get the duration of one iteration (max of all blocks played simultaneously)
                     let maxIterationDuration = 0;
-                    for (let i = 2; i < parts.length; i++) {
-                        const blockDuration = this.estimateDuration(parts[i], new Set(visited));
+                    for (let j = 2; j < parts.length; j++) {
+                        const blockDuration = this.estimateDuration(parts[j], new Set(visited));
                         maxIterationDuration = Math.max(maxIterationDuration, blockDuration);
                     }
-                    // Multiply by loop count (loops are sequential iterations)
                     totalBeats += (maxIterationDuration / beatDuration) * count;
                     break;
                 }
+                case 'pattern':
+                    const patternSteps = parts.slice(2).join(' ').split('-').length;
+                    totalBeats += (patternSteps * 0.25); // 16th notes
+                    break;
+                case 'sequence':
+                    const sequenceSteps = parts.length - 2;
+                    totalBeats += (sequenceSteps * 0.25); // 16th notes
+                    break;
+                case 'if':
+                    // Find matching endif and estimate inner block duration
+                    const endifIdx = this.findMatchingEnd(commands, i, 'if', 'endif');
+                    // Rough estimation - assume condition is true
+                    for (let j = i + 1; j < endifIdx; j++) {
+                        const innerCmd = commands[j].split(/\s+/)[0];
+                        if (innerCmd === 'wait') {
+                            totalBeats += parseFloat(commands[j].split(/\s+/)[1]) || 0;
+                        } else if (innerCmd === 'tone' || innerCmd === 'slide') {
+                            totalBeats += parseFloat(commands[j].split(/\s+/)[2]) || 1;
+                        }
+                    }
+                    i = endifIdx; // Skip to endif
+                    break;
+                case 'for':
+                    const forStart = parseInt(parts[2]) || 1;
+                    const forEnd = parseInt(parts[3]) || 1;
+                    const iterations = Math.max(1, forEnd - forStart + 1);
+                    const endforIdx = this.findMatchingEnd(commands, i, 'for', 'endfor');
+                    // Estimate inner block duration and multiply by iterations
+                    let forDuration = 0;
+                    for (let j = i + 1; j < endforIdx; j++) {
+                        const innerCmd = commands[j].split(/\s+/)[0];
+                        if (innerCmd === 'wait') {
+                            forDuration += parseFloat(commands[j].split(/\s+/)[1]) || 0;
+                        } else if (innerCmd === 'tone' || innerCmd === 'slide') {
+                            forDuration += parseFloat(commands[j].split(/\s+/)[2]) || 1;
+                        }
+                    }
+                    totalBeats += forDuration * iterations;
+                    i = endforIdx; // Skip to endfor
+                    break;
             }
         }
         return totalBeats * beatDuration;

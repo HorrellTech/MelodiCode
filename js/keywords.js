@@ -68,6 +68,50 @@ window.melodicodeKeywords = {
             { name: "pan", desc: "Stereo position -1 to 1 (default: 0)" }
         ]
     },*/
+    pattern: {
+        description: "Create a rhythmic pattern using 1/0 or x/- notation.",
+        usage: "pattern <sampleName> <pattern>",
+        params: [
+            { name: "sampleName", desc: "Sample to trigger on pattern hits" },
+            { name: "pattern", desc: "Pattern string like '1-0-1-0-' or 'x-x---x-'" }
+        ]
+    },
+    sequence: {
+        description: "Sequence different samples as steps.",
+        usage: "sequence <baseName> <sample1> <sample2> ...",
+        params: [
+            { name: "baseName", desc: "Base name for the sequence" },
+            { name: "samples", desc: "Sample names for each step, use '-' for silence" }
+        ]
+    },
+    if: {
+        description: "Conditional execution based on variable comparison.",
+        usage: "if <variable> <operator> <value>\n    ...commands...\nendif",
+        params: [
+            { name: "variable", desc: "Variable name to check" },
+            { name: "operator", desc: "Comparison operator: >, <, ==, !=, >=, <=" },
+            { name: "value", desc: "Value to compare against" }
+        ]
+    },
+    for: {
+        description: "Loop with counter variable.",
+        usage: "for <variable> <start> <end>\n    ...commands...\nendfor",
+        params: [
+            { name: "variable", desc: "Counter variable name" },
+            { name: "start", desc: "Starting value" },
+            { name: "end", desc: "Ending value (inclusive)" }
+        ]
+    },
+    endif: {
+        description: "End an if statement block.",
+        usage: "endif",
+        params: []
+    },
+    endfor: {
+        description: "End a for loop block.",
+        usage: "endfor", 
+        params: []
+    },
     wait: {
         description: "Pause for a given duration.",
         usage: "wait <duration>",

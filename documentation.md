@@ -43,6 +43,133 @@ play main
 
 ---
 
+## 🎛️ Pattern & Sequence Commands
+
+### **Pattern**
+
+Create rhythmic patterns using simple notation:
+
+```melodicode
+pattern <sampleName> <pattern>
+```
+
+- Use `1`, `x`, or `X` for hits
+- Use `0` or `-` for silence
+- Each step is a 16th note
+
+**Example:**
+```melodicode
+pattern kick "1-0-1-0-"
+pattern hihat "x-x-x-x-"
+```
+
+---
+
+### **Sequence**
+
+Play different samples in sequence:
+
+```melodicode
+sequence <baseName> <sample1> <sample2> ...
+```
+
+**Example:**
+```melodicode
+sequence drums kick snare hihat snare
+```
+
+---
+
+## 🔧 Control Flow
+
+### **Variables**
+
+Set and use variables:
+
+```melodicode
+set volume 0.8
+set note C4
+tone note 1 sine volume
+```
+
+---
+
+### **Conditional Statements**
+
+Execute commands based on conditions:
+
+```melodicode
+if <variable> <operator> <value>
+    ...commands...
+endif
+```
+
+**Operators:** `>`, `<`, `==`, `!=`, `>=`, `<=`
+
+**Example:**
+```melodicode
+set count 5
+if count > 3
+    tone C4 1
+    wait 1
+endif
+```
+
+---
+
+### **For Loops**
+
+Repeat commands with a counter:
+
+```melodicode
+for <variable> <start> <end>
+    ...commands...
+endfor
+```
+
+**Example:**
+```melodicode
+for i 1 4
+    tone C4 0.5
+    wait 0.5
+endfor
+```
+
+---
+
+## 🚀 Advanced Example: Pattern-based Song
+
+```melodicode
+bpm 128
+
+set volume 0.8
+
+[drums]
+    pattern kick "1-0-1-0-"
+    pattern snare "0-0-1-0-"
+    pattern hihat "1-1-1-1-"
+[end]
+
+[melody]
+    for i 1 4
+        tone C4 0.25 sine volume
+        tone E4 0.25 sine volume
+        tone G4 0.25 sine volume
+        wait 0.25
+    endfor
+[end]
+
+[main]
+    if volume > 0.5
+        play drums melody
+    endif
+[end]
+
+play main
+```
+
+---
+
 ## 🎵 Basic Commands
 
 ### 1. **Sample Playback**
