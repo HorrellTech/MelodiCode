@@ -20,6 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
 </head>
 
 <body>
@@ -46,6 +47,13 @@
                     <button class="btn btn-sm" id="exportWav">
                         <i class="fas fa-download"></i> Export WAV
                     </button>
+                    <button class="btn btn-sm" id="importMidi">
+                        <i class="fas fa-file-import"></i> Import MIDI
+                    </button>
+                    <button class="btn btn-sm" id="exportMidi">
+                        <i class="fas fa-file-export"></i> Export MIDI
+                    </button>
+                    <input type="file" id="midiFileInput" accept=".mid,.midi" style="display:none;">
                 </div>
             </div>
 
