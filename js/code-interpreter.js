@@ -558,8 +558,10 @@ class CodeInterpreter {
 
         setTimeout(() => {
             if (this.isRunning) { // Only speak if execution hasn't been stopped
-                speechSynthesis.cancel(); // Clear any previous utterances
                 speechSynthesis.speak(utterance);
+            } else {
+                // If execution was stopped before this timeout fired, ensure cleanup.
+                cleanup();
             }
         }, delayInMilliseconds);
         // --- TIMING FIX END ---
