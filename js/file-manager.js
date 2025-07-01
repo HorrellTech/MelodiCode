@@ -282,6 +282,168 @@ play main bass volume=0.9`;
         }
     }
 
+    async exportStems() {
+        try {
+            this.updateStatus('Exporting stems...');
+            
+            const code = window.editor ? window.editor.getValue() : '';
+            if (!code.trim()) {
+                throw new Error('No code to export');
+            }
+
+            // Parse the code to get blocks
+            const parseResult = window.codeInterpreter.parse(code);
+            if (!parseResult.success) {
+                throw new Error('Invalid code: ' + parseResult.message);
+            }
+
+            // Get all blocks
+            const blocks = Array.from(window.codeInterpreter.blocks.keys());
+            if (blocks.length === 0) {
+                throw new Error('No blocks found to export');
+            }
+
+            // Estimate total duration for consistency across all stems
+            let totalDuration = 10; // fallback
+            try {
+                totalDuration = window.codeInterpreter.estimateDuration('main');
+                if (!totalDuration || isNaN(totalDuration) || totalDuration < 1) {
+                    totalDuration = 10;
+                }
+                totalDuration = Math.ceil(totalDuration + 5); // Add buffer for reverb tails
+            } catch (e) {
+                totalDuration = 10;
+            }
+
+            // Load JSZip library if not already loaded
+            if (typeof JSZip === 'undefined') {
+                await this.loadJSZip();
+            }
+
+            const zip = new JSZip();
+            const projectName = this.projectData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+            // Export each block as a separate stem
+            for (let i = 0; i < blocks.length; i++) {
+                const blockName = blocks[i];
+                this.updateStatus(`Exporting stem ${i + 1}/${blocks.length}: ${blockName}`);
+
+                try {
+                    // Create isolated code that only plays this block
+                    const isolatedCode = this.createIsolatedBlockCode(blockName, code);
+                    
+                    // Export this block as WAV
+                    const audioBlob = await this.exportBlockAsWAV(isolatedCode, totalDuration);
+                    
+                    // Add to zip
+                    const fileName = `${projectName}_${blockName}.wav`;
+                    zip.file(fileName, audioBlob);
+                    
+                } catch (blockError) {
+                    console.warn(`Failed to export block ${blockName}:`, blockError);
+                    // Continue with other blocks
+                }
+            }
+
+            // Generate and download the zip file
+            this.updateStatus('Creating ZIP file...');
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${projectName}_stems.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            return { success: true, message: `Stems exported successfully (${blocks.length} files)` };
+
+        } catch (error) {
+            return { success: false, message: 'Stems export failed: ' + error.message };
+        }
+    }
+
+    async loadJSZip() {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    createIsolatedBlockCode(blockName, originalCode) {
+        // Parse the original code to extract global settings and the specific block
+        const lines = originalCode.split('\n');
+        let isolatedCode = '';
+        let inTargetBlock = false;
+        let currentBlock = null;
+        let blockDepth = 0;
+
+        // First pass: collect global settings (BPM, etc.)
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            // Skip comments and empty lines
+            if (!trimmedLine || trimmedLine.startsWith('//')) continue;
+            
+            // Capture global BPM settings
+            if (trimmedLine.startsWith('bpm ') && !inTargetBlock && !currentBlock) {
+                isolatedCode += trimmedLine + '\n';
+                continue;
+            }
+            
+            // Track block boundaries
+            if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']') && !trimmedLine.includes('end')) {
+                currentBlock = trimmedLine.slice(1, -1);
+                if (currentBlock === blockName) {
+                    inTargetBlock = true;
+                    isolatedCode += trimmedLine + '\n';
+                }
+                blockDepth++;
+            } else if (trimmedLine === '[end]') {
+                if (inTargetBlock) {
+                    isolatedCode += trimmedLine + '\n';
+                    inTargetBlock = false;
+                }
+                currentBlock = null;
+                blockDepth--;
+            } else if (inTargetBlock) {
+                isolatedCode += trimmedLine + '\n';
+            }
+        }
+
+        // Add play command for the isolated block
+        isolatedCode += `\nplay ${blockName}`;
+
+        return isolatedCode;
+    }
+
+    async exportBlockAsWAV(code, duration) {
+        // Temporarily store the current editor content
+        const originalCode = window.editor.getValue();
+        
+        try {
+            // Set the isolated code
+            window.editor.setValue(code);
+            
+            // Use the existing export WAV functionality
+            const audioBlob = await window.audioEngine.exportWAV(duration);
+            
+            return audioBlob;
+        } finally {
+            // Restore the original code
+            window.editor.setValue(originalCode);
+        }
+    }
+
+    updateStatus(message) {
+        if (window.uiManager) {
+            window.uiManager.updateStatus(message);
+        }
+    }
+
     createProjectBackup() {
         const backup = {
             ...this.projectData,

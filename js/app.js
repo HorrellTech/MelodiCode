@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Add main block to play the imported track
-            code += `[main]\n    play track_0\n[end]\n\nplay main`;
+            code += `[main]\n    play track_1\n[end]\n\nplay main`;
 
             console.log('Generated code length:', code.length);
 
@@ -833,6 +833,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('MIDI export error:', error);
             alert('Failed to export MIDI: ' + error.message);
             window.uiManager.updateStatus('MIDI export failed: ' + error.message);
+        }
+    });
+
+    // Export Stems button click handler
+    document.getElementById('exportStems')?.addEventListener('click', async () => {
+        alert('Exporting stems is still work in progress. Please check back later.');
+        return;
+        try {
+            window.uiManager.updateStatus('Exporting stems...');
+            const result = await window.fileManager.exportStems();
+            
+            if (result.success) {
+                window.uiManager.updateStatus(result.message);
+            } else {
+                window.uiManager.showError(result.message);
+            }
+        } catch (error) {
+            console.error('Stems export error:', error);
+            window.uiManager.showError('Failed to export stems: ' + error.message);
         }
     });
 

@@ -35,6 +35,7 @@ class UIManager {
         document.getElementById('openProject').addEventListener('click', () => this.openProject());
         document.getElementById('saveProject').addEventListener('click', () => this.saveProject());
         document.getElementById('exportWav').addEventListener('click', () => this.exportWAV());
+        //document.getElementById('exportStems').addEventListener('click', () => this.exportStems());
 
         // Code editor controls
         document.getElementById('formatCode').addEventListener('click', () => this.formatCode());
@@ -504,6 +505,22 @@ play main`);
             }
         } catch (error) {
             this.showError('Export failed: ' + error.message);
+        }
+    }
+
+    async exportStems() {
+        try {
+            this.updateStatus('Preparing stems export...');
+            const result = await window.fileManager.exportStems();
+
+            if (result.success) {
+                this.updateStatus(result.message);
+                this.showSuccess(result.message);
+            } else {
+                this.showError(result.message);
+            }
+        } catch (error) {
+            this.showError('Stems export failed: ' + error.message);
         }
     }
 

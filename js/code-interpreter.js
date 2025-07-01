@@ -608,8 +608,8 @@ class CodeInterpreter {
                     wetGain.gain.value = 0.5;
                     const dryGain = ctx.createGain();
                     dryGain.gain.value = 0.5;
-                    dryWetNodes.push({wet: reverb, wetGain, dryGain});
-                    lastNode = {wet: reverb, wetGain, dryGain};
+                    dryWetNodes.push({ wet: reverb, wetGain, dryGain });
+                    lastNode = { wet: reverb, wetGain, dryGain };
                 } else if (effect.type === 'delay') {
                     // Create delay node
                     const delay = ctx.createDelay();
@@ -619,8 +619,8 @@ class CodeInterpreter {
                     wetGain.gain.value = 0.5;
                     const dryGain = ctx.createGain();
                     dryGain.gain.value = 0.5;
-                    dryWetNodes.push({wet: delay, wetGain, dryGain});
-                    lastNode = {wet: delay, wetGain, dryGain};
+                    dryWetNodes.push({ wet: delay, wetGain, dryGain });
+                    lastNode = { wet: delay, wetGain, dryGain };
                 }
                 // Add more effects as needed
             }
@@ -760,25 +760,29 @@ class CodeInterpreter {
                     beatDuration = 60 / bpm;
                     break;
                 case 'play': {
-                    // Play blocks in parallel, so take the max duration
-                    let max = 0;
+                    // Play blocks in parallel - they don't add sequential time
+                    // The play command itself takes as long as its longest block
+                    let maxDuration = 0;
                     for (let i = 1; i < parts.length; i++) {
                         if (!parts[i].includes('=')) {
-                            // Don't pass visited set, allow repeated blocks
-                            max = Math.max(max, this.estimateDuration(parts[i], new Set(visited)));
+                            const blockDuration = this.estimateDuration(parts[i], new Set(visited));
+                            maxDuration = Math.max(maxDuration, blockDuration);
                         }
                     }
-                    totalBeats += max / beatDuration;
+                    // Convert back to beats and add to timeline
+                    totalBeats += maxDuration / beatDuration;
                     break;
                 }
                 case 'loop': {
                     const count = parseInt(parts[1]) || 1;
-                    let sum = 0;
+                    // Get the duration of one iteration (max of all blocks played simultaneously)
+                    let maxIterationDuration = 0;
                     for (let i = 2; i < parts.length; i++) {
-                        // Don't pass visited set, allow repeated blocks
-                        sum += this.estimateDuration(parts[i], new Set(visited));
+                        const blockDuration = this.estimateDuration(parts[i], new Set(visited));
+                        maxIterationDuration = Math.max(maxIterationDuration, blockDuration);
                     }
-                    totalBeats += (sum / beatDuration) * count;
+                    // Multiply by loop count (loops are sequential iterations)
+                    totalBeats += (maxIterationDuration / beatDuration) * count;
                     break;
                 }
             }
