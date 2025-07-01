@@ -131,33 +131,33 @@ class AudioEngine {
             'tom_mid': await this.generateTom(150),
             'tom_low': await this.generateTom(100),
             'clap': await this.generateClap(),
-            
+
             // Bass sounds
             'bass_low': await this.generateBass(55), // A1
             'bass_mid': await this.generateBass(110), // A2
             'bass_high': await this.generateBass(220), // A3
             'sub_bass': await this.generateSubBass(41), // E1
             'bass_pluck': await this.generateBassPluck(82), // E2
-            
+
             // Lead sounds
             'lead_1': await this.generateLead(440), // A4
             'lead_2': await this.generateLead2(440),
             'lead_bright': await this.generateBrightLead(880),
             'lead_soft': await this.generateSoftLead(440),
-            
+
             // Pad sounds
             'pad_1': await this.generatePad(220), // A3
             'pad_warm': await this.generateWarmPad(220),
             'pad_strings': await this.generateStringPad(330),
             'pad_choir': await this.generateChoirPad(440),
-            
+
             // Percussion
             'shaker': await this.generateShaker(),
             'tambourine': await this.generateTambourine(),
             'cowbell': await this.generateCowbell(),
             'woodblock': await this.generateWoodblock(),
             'triangle': await this.generateWoodblock(), // Using woodblock for triangle sound
-            
+
             // FX sounds
             'whoosh': await this.generateWhoosh(),
             'zap': await this.generateZap(),
@@ -940,7 +940,7 @@ class AudioEngine {
         let estimatedDuration = 10;
         try {
             estimatedDuration = window.codeInterpreter.estimateDuration('main');
-            console.log('Estimated duration:', estimatedDuration); 
+            console.log('Estimated duration:', estimatedDuration);
             if (!estimatedDuration || isNaN(estimatedDuration) || estimatedDuration < 1) {
                 estimatedDuration = 10;
             }
@@ -1035,23 +1035,25 @@ class AudioEngine {
             scheduleAheadTime: 0.1,
             activeSources: new Set(),
             activeBlocks: new Map(),
+            // ADD REVERB SUPPORT FOR OFFLINE
+            reverb: this.reverb ? { buffer: this.reverb.buffer } : null,
 
             // Override the audioContext currentTime property
             audioContext: offlineContext,
             offlineCurrentTime: 0,
 
-            playSample: (sampleName, pitch = 1, timescale = 1, when = 0, volume = 1, pan = 0) => {
+            playSample: (sampleName, pitch = 1, timescale = 1, when = 0, volume = 1, pan = 0, outputNode = null) => {
                 // Use the offline current time plus the when parameter
                 const absoluteWhen = offlineCurrentTime + when;
                 console.log(`Playing sample '${sampleName}' at offline time ${absoluteWhen} (currentTime: ${offlineCurrentTime}, when: ${when})`);
-                return this.playOfflineSample(sampleName, offlineContext, outputNode, absoluteWhen, pitch, timescale, volume);
+                return this.playOfflineSample(sampleName, offlineContext, outputNode || offlineEngine.eq.low, absoluteWhen, pitch, timescale, volume);
             },
 
-            generateTone: (frequency, duration = 1, waveType = 'sine', when = 0, volume = 1, pan = 0) => {
+            generateTone: (frequency, duration = 1, waveType = 'sine', when = 0, volume = 1, pan = 0, outputNode = null) => {
                 // Use the offline current time plus the when parameter
                 const absoluteWhen = offlineCurrentTime + when;
                 console.log(`Generating tone ${frequency}Hz at offline time ${absoluteWhen} (currentTime: ${offlineCurrentTime}, when: ${when})`);
-                return this.generateOfflineTone(frequency, duration, offlineContext, outputNode, absoluteWhen, waveType, volume);
+                return this.generateOfflineTone(frequency, duration, offlineContext, outputNode || offlineEngine.eq.low, absoluteWhen, waveType, volume);
             },
 
             // Mock scheduler that advances time
@@ -1071,30 +1073,264 @@ class AudioEngine {
             stop: () => { }
         };
 
-        // Patch the interpreter's executeBlock and executeCommand for offline scheduling
+        // Patch the interpreter's executeBlock method for offline rendering
         offlineEngine.executeBlock = async (blockName, startTime = 0, globalParams = {}) => {
             if (!window.codeInterpreter.blocks.has(blockName)) {
                 console.warn(`Block '${blockName}' not found`);
                 return 0;
             }
-            const commands = window.codeInterpreter.blocks.get(blockName);
-            let blockTime = 0;
-            for (const command of commands) {
-                // Each command schedules at offlineEngine.offlineCurrentTime + blockTime
-                const duration = await offlineEngine.executeCommand(command, offlineEngine.offlineCurrentTime + blockTime);
-                blockTime += duration;
-            }
-            offlineEngine.offlineCurrentTime += blockTime;
-            return blockTime;
-        };
 
-        offlineEngine.executeCommand = async (command, absTime) => {
-            // Use the original interpreter's executeCommand, but pass absTime as startTime
-            // (You may need to bind the interpreter if needed)
-            return await window.codeInterpreter.__proto__.executeCommand.call(window.codeInterpreter, command, absTime);
+            const commands = window.codeInterpreter.blocks.get(blockName);
+            let currentTime = 0;
+
+            // --- OFFLINE EFFECT CHAIN START ---
+            let effectInputNode = offlineEngine.eq.low; // Default output
+            if (window.codeInterpreter.effects.has(blockName)) {
+                const effects = window.codeInterpreter.effects.get(blockName);
+                let currentNode = offlineEngine.eq.low; // Start with default output
+
+                // Build effect chain from last to first (reverse order)
+                for (let i = effects.length - 1; i >= 0; i--) {
+                    const effect = effects[i];
+                    let effectNode = null;
+                    let wetGain = null;
+                    let dryGain = null;
+
+                    if (effect.type === 'reverb') {
+                        effectNode = offlineContext.createConvolver();
+                        if (offlineEngine.reverb && offlineEngine.reverb.buffer) {
+                            effectNode.buffer = offlineEngine.reverb.buffer;
+                        }
+
+                        // Create wet/dry mix
+                        wetGain = offlineContext.createGain();
+                        dryGain = offlineContext.createGain();
+                        const wetAmount = parseFloat(effect.params[0]) || 0.3;
+                        wetGain.gain.value = wetAmount;
+                        dryGain.gain.value = 1 - wetAmount;
+
+                        // Connect: input -> [dry path, wet path] -> output
+                        effectNode.connect(wetGain);
+                        wetGain.connect(currentNode);
+                        dryGain.connect(currentNode);
+
+                        // Create input splitter
+                        const splitter = offlineContext.createGain();
+                        splitter.connect(effectNode); // to wet
+                        splitter.connect(dryGain);    // to dry
+
+                        currentNode = splitter;
+
+                    } else if (effect.type === 'delay') {
+                        effectNode = offlineContext.createDelay(1); // Max 1 second delay
+                        const delayTime = parseFloat(effect.params[0]) || 0.3;
+                        const feedback = parseFloat(effect.params[1]) || 0.3;
+                        const wetAmount = parseFloat(effect.params[2]) || 0.3;
+
+                        effectNode.delayTime.value = delayTime;
+
+                        // Create feedback loop
+                        const feedbackGain = offlineContext.createGain();
+                        feedbackGain.gain.value = feedback;
+                        effectNode.connect(feedbackGain);
+                        feedbackGain.connect(effectNode);
+
+                        // Create wet/dry mix
+                        wetGain = offlineContext.createGain();
+                        dryGain = offlineContext.createGain();
+                        wetGain.gain.value = wetAmount;
+                        dryGain.gain.value = 1 - wetAmount;
+
+                        effectNode.connect(wetGain);
+                        wetGain.connect(currentNode);
+                        dryGain.connect(currentNode);
+
+                        const splitter = offlineContext.createGain();
+                        splitter.connect(effectNode);
+                        splitter.connect(dryGain);
+
+                        currentNode = splitter;
+
+                    } else if (effect.type === 'filter') {
+                        effectNode = offlineContext.createBiquadFilter();
+                        const filterType = effect.params[0] || 'lowpass';
+                        const frequency = parseFloat(effect.params[1]) || 1000;
+                        const q = parseFloat(effect.params[2]) || 1;
+
+                        effectNode.type = filterType;
+                        effectNode.frequency.value = frequency;
+                        effectNode.Q.value = q;
+
+                        effectNode.connect(currentNode);
+                        currentNode = effectNode;
+
+                    } else if (effect.type === 'distortion') {
+                        effectNode = offlineContext.createWaveShaper();
+                        const amount = parseFloat(effect.params[0]) || 10;
+                        const samples = 44100;
+                        const curve = new Float32Array(samples);
+                        const deg = Math.PI / 180;
+
+                        for (let i = 0; i < samples; i++) {
+                            const x = (i * 2) / samples - 1;
+                            curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+                        }
+
+                        effectNode.curve = curve;
+                        effectNode.oversample = '4x';
+
+                        effectNode.connect(currentNode);
+                        currentNode = effectNode;
+
+                    } else if (effect.type === 'chorus') {
+                        // Simple chorus using multiple delays
+                        const rate = parseFloat(effect.params[0]) || 1;
+                        const depth = parseFloat(effect.params[1]) || 0.002;
+                        const wetAmount = parseFloat(effect.params[2]) || 0.3;
+
+                        const delay1 = offlineContext.createDelay(0.1);
+                        const delay2 = offlineContext.createDelay(0.1);
+                        const lfo1 = offlineContext.createOscillator();
+                        const lfo2 = offlineContext.createOscillator();
+                        const lfoGain1 = offlineContext.createGain();
+                        const lfoGain2 = offlineContext.createGain();
+
+                        lfo1.frequency.value = rate;
+                        lfo2.frequency.value = rate * 1.1; // Slightly different rate
+                        lfoGain1.gain.value = depth;
+                        lfoGain2.gain.value = depth;
+
+                        lfo1.connect(lfoGain1);
+                        lfo2.connect(lfoGain2);
+                        lfoGain1.connect(delay1.delayTime);
+                        lfoGain2.connect(delay2.delayTime);
+
+                        delay1.delayTime.value = 0.01;
+                        delay2.delayTime.value = 0.015;
+
+                        wetGain = offlineContext.createGain();
+                        dryGain = offlineContext.createGain();
+                        wetGain.gain.value = wetAmount;
+                        dryGain.gain.value = 1 - wetAmount;
+
+                        const chorusMix = offlineContext.createGain();
+                        delay1.connect(chorusMix);
+                        delay2.connect(chorusMix);
+                        chorusMix.connect(wetGain);
+                        wetGain.connect(currentNode);
+                        dryGain.connect(currentNode);
+
+                        const splitter = offlineContext.createGain();
+                        splitter.connect(delay1);
+                        splitter.connect(delay2);
+                        splitter.connect(dryGain);
+
+                        lfo1.start();
+                        lfo2.start();
+
+                        currentNode = splitter;
+                    }
+                }
+
+                effectInputNode = currentNode;
+            }
+            // --- OFFLINE EFFECT CHAIN END ---
+
+            // Execute block commands with effect support
+            let i = 0;
+            while (i < commands.length) {
+                const command = commands[i];
+                const parts = command.split(/\s+/);
+                const cmd = parts[0];
+
+                if (cmd === 'if') {
+                    const result = await window.codeInterpreter.executeIf(parts, startTime + currentTime, commands, i);
+                    currentTime += result.duration;
+                    i = result.nextIndex;
+                } else if (cmd === 'for') {
+                    const result = await window.codeInterpreter.executeFor(parts, startTime + currentTime, commands, i);
+                    currentTime += result.duration;
+                    i = result.nextIndex;
+                } else if (cmd === 'pattern') {
+                    const duration = await window.codeInterpreter.executePattern(parts, startTime + currentTime, effectInputNode);
+                    currentTime += duration;
+                    i++;
+                } else if (cmd === 'sequence') {
+                    const duration = await window.codeInterpreter.executeSequence(parts, startTime + currentTime, effectInputNode);
+                    currentTime += duration;
+                    i++;
+                } else {
+                    // Execute command with effect input node
+                    const duration = await this.executeOfflineCommand(command, startTime + currentTime, effectInputNode, offlineEngine);
+                    currentTime += duration;
+                    i++;
+                }
+            }
+
+            offlineEngine.offlineCurrentTime += currentTime;
+            return currentTime;
         };
 
         return offlineEngine;
+    }
+
+    async executeOfflineCommand(command, startTime, effectInputNode, offlineEngine) {
+        const parts = command.split(/\s+/);
+        const cmd = parts[0];
+
+        switch (cmd) {
+            case 'sample':
+                const sampleName = parts[1];
+                const pitch = parseFloat(parts[2]) || 1;
+                const timescale = parseFloat(parts[3]) || 1;
+                const volume = parseFloat(parts[4]) || 0.8;
+
+                // Check if it's a custom sample
+                if (window.codeInterpreter.customSamples.has(sampleName)) {
+                    const commands = window.codeInterpreter.customSamples.get(sampleName);
+                    await Promise.all(commands.map(command =>
+                        this.executeOfflineCommand(command, startTime, effectInputNode, offlineEngine)
+                    ));
+                    return 0;
+                }
+
+                return this.playOfflineSample(sampleName, offlineEngine.audioContext, effectInputNode, startTime, pitch, timescale, volume);
+
+            case 'tone':
+                const noteOrFreq = parts[1];
+                let duration = parseFloat(parts[2]) || 1;
+                const waveType = parts[3] || 'sine';
+                const toneVolume = parseFloat(parts[4]) || 0.8;
+
+                // Convert duration based on BPM
+                const durationInSeconds = duration * (60 / offlineEngine.bpm);
+
+                let frequency;
+                if (isNaN(noteOrFreq)) {
+                    frequency = this.noteToFrequency(noteOrFreq);
+                } else {
+                    frequency = parseFloat(noteOrFreq);
+                }
+
+                this.generateOfflineTone(frequency, durationInSeconds, offlineEngine.audioContext, effectInputNode, startTime, waveType, toneVolume);
+                return durationInSeconds;
+
+            case 'wait':
+                const waitDuration = parseFloat(parts[1]) || 0;
+                return waitDuration * (60 / offlineEngine.bpm); // Convert beats to seconds
+
+            case 'bpm':
+                offlineEngine.bpm = parseFloat(parts[1]) || 120;
+                return 0;
+
+            case 'set':
+                window.codeInterpreter.variables.set(parts[1], parseFloat(parts[2]) || 0);
+                return 0;
+
+            default:
+                console.warn(`Unknown offline command: ${cmd}`);
+                return 0;
+        }
     }
 
     async executeCodeOffline(offlineEngine, maxDuration) {

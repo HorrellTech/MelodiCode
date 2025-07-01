@@ -3,7 +3,47 @@ let editor;
 function getCurrentWord(cm) {
     const cursor = cm.getCursor();
     const line = cm.getLine(cursor.line);
-    // Get word at cursor
+    
+    // Check if cursor is within parentheses for effects
+    let parenStart = -1;
+    let parenEnd = -1;
+    
+    // Find the nearest parentheses around the cursor
+    for (let i = cursor.ch - 1; i >= 0; i--) {
+        if (line[i] === '(') {
+            parenStart = i;
+            break;
+        }
+        if (line[i] === ')') {
+            break; // We're not inside parentheses
+        }
+    }
+    
+    if (parenStart !== -1) {
+        // Find the closing parenthesis
+        for (let i = cursor.ch; i < line.length; i++) {
+            if (line[i] === ')') {
+                parenEnd = i;
+                break;
+            }
+            if (line[i] === '(') {
+                break; // Nested parentheses, stop
+            }
+        }
+        
+        if (parenEnd !== -1) {
+            // Extract content within parentheses
+            const parenContent = line.substring(parenStart + 1, parenEnd).trim();
+            const firstWord = parenContent.split(/\s+/)[0];
+            
+            // Check if it's a valid effect keyword
+            if (firstWord && melodicodeKeywords[firstWord]) {
+                return firstWord;
+            }
+        }
+    }
+    
+    // Original logic for non-parentheses content
     const start = line.lastIndexOf(' ', cursor.ch - 1) + 1;
     const end = line.indexOf(' ', cursor.ch);
     let word = line.substring(start, end === -1 ? line.length : end);
@@ -79,6 +119,9 @@ CodeMirror.defineSimpleMode("melodicode", {
     start: [
         // Highlight [block] and <block>
         { regex: /(\[[^\]]+\]|<[^>]+>)/, token: "block" },
+
+        // Highlight effects within parentheses - simpler approach
+        { regex: /\((reverb|delay|filter|distortion|chorus)[^)]*\)/, token: "effect" },
 
         // Highlight keywords
         {
