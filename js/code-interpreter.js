@@ -8,7 +8,8 @@ class CodeInterpreter {
         this.currentPosition = 0;
         this.loopStacks = new Map();
         this.effects = new Map();
-        this.customSamples = new Map(); // name -> commands
+        this.customSamples = new Map();
+        this.activeUtterances = [];
 
         // Default values
         this.defaultVolume = 0.8;
@@ -348,24 +349,51 @@ class CodeInterpreter {
     }
 
     async executePattern(parts, startTime, effectNodes = []) {
-        const patternName = parts[1];
-        const patternString = parts.slice(2).join(' '); // e.g., "1-0-1-0-" or "x-x---x-"
-
-        // Parse pattern string and schedule samples/tones based on pattern
-        const steps = patternString.split('-');
-        let currentTime = 0;
-        const stepDuration = this.beatDuration / 4; // 16th notes
-
-        for (let i = 0; i < steps.length; i++) {
-            const step = steps[i].trim();
-            if (step === '1' || step === 'x' || step === 'X') {
-                // Trigger the pattern sound
-                await this.executeCommand(`sample ${patternName}`, startTime + currentTime, effectNodes);
-            }
-            currentTime += stepDuration;
+        if (parts.length < 3 || parts.length % 2 !== 1) {
+            console.warn('Pattern command requires pairs of a sample name and a pattern string.');
+            return 0;
         }
-
-        return currentTime;
+    
+        const patterns = [];
+        // Loop through parts, taking a sample name and a pattern string as a pair
+        for (let i = 1; i < parts.length; i += 2) {
+            const sampleName = parts[i];
+            const patternString = parts[i + 1].replace(/"/g, ''); // Remove quotes
+            patterns.push({ name: sampleName, string: patternString });
+        }
+    
+        if (patterns.length === 0) {
+            return 0;
+        }
+    
+        let maxLength = 0;
+        const executionPromises = [];
+        const stepDuration = this.beatDuration / 4; // 16th notes
+    
+        // Process each pattern definition
+        for (const pattern of patterns) {
+            const steps = pattern.string.split('-');
+            if (steps.length > maxLength) {
+                maxLength = steps.length;
+            }
+    
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i].trim();
+                if (step === '1' || step === 'x' || step === 'X') {
+                    const hitTime = startTime + (i * stepDuration);
+                    // Schedule the sample play, and run them in parallel
+                    executionPromises.push(
+                        this.executeCommand(`sample ${pattern.name}`, hitTime, effectNodes)
+                    );
+                }
+            }
+        }
+    
+        // Wait for all sample scheduling commands to be initiated
+        await Promise.all(executionPromises);
+    
+        // The total duration is determined by the longest pattern
+        return maxLength * stepDuration;
     }
 
     async executeSequence(parts, startTime, effectNodes = []) {
@@ -431,6 +459,39 @@ class CodeInterpreter {
     }
 
     async executeTTS(parts, startTime) {
+         // Check if we're in offline rendering mode
+        if (this.audioEngine && this.audioEngine.audioContext && this.audioEngine.audioContext.constructor.name === 'OfflineAudioContext') {
+            // In offline mode, just return estimated duration without actual TTS
+            console.warn('TTS not supported in offline rendering mode');
+            
+            // Extract text and estimate duration (same logic as below)
+            let text = '';
+            let paramStartIndex = 1;
+            
+            if (parts[1] && parts[1].startsWith('"')) {
+                const quotedText = [];
+                for (let i = 1; i < parts.length; i++) {
+                    quotedText.push(parts[i]);
+                    if (parts[i].endsWith('"')) {
+                        paramStartIndex = i + 1;
+                        break;
+                    }
+                }
+                text = quotedText.join(' ').replace(/"/g, '');
+            } else {
+                text = parts[1] || 'Hello';
+                paramStartIndex = 2;
+            }
+            
+            const rate = this.parseValue(parts[paramStartIndex] || '1');
+            const adjustedRate = rate * (this.bpm / 120);
+            const wordsPerMinute = 150 * adjustedRate;
+            const wordCount = text.split(' ').length;
+            const estimatedDuration = (wordCount / wordsPerMinute) * 60;
+            
+            return estimatedDuration;
+        }
+
         // Extract text (handle quoted strings)
         let text = '';
         let paramStartIndex = 1;
@@ -470,15 +531,38 @@ class CodeInterpreter {
             utterance.voice = voices[voiceIndex];
         }
 
-        // Schedule the speech
-        const delay = (startTime - this.audioEngine.audioContext.currentTime) * 1000;
-        if (delay > 0) {
-            setTimeout(() => {
+        // --- STABILITY FIX START ---
+        // The SpeechSynthesis API can be unstable. Holding a reference to the
+        // utterance object and managing its lifecycle helps prevent issues
+        // like repeated, cut-off, or dropped lines.
+        const cleanup = () => {
+            const index = this.activeUtterances.indexOf(utterance);
+            if (index > -1) {
+                this.activeUtterances.splice(index, 1);
+            }
+        };
+
+        utterance.onend = cleanup;
+        utterance.onerror = (event) => {
+            console.error(`SpeechSynthesis error for "${text}": ${event.error}`);
+            cleanup();
+        };
+        
+        this.activeUtterances.push(utterance);
+        // --- STABILITY FIX END ---
+
+        // --- TIMING FIX START ---
+        // Schedule the speech relative to the audio context's clock for precision.
+        const delayInSeconds = startTime - this.audioEngine.audioContext.currentTime;
+        const delayInMilliseconds = Math.max(0, delayInSeconds * 1000);
+
+        setTimeout(() => {
+            if (this.isRunning) { // Only speak if execution hasn't been stopped
+                speechSynthesis.cancel(); // Clear any previous utterances
                 speechSynthesis.speak(utterance);
-            }, Math.max(0, delay));
-        } else {
-            speechSynthesis.speak(utterance);
-        }
+            }
+        }, delayInMilliseconds);
+        // --- TIMING FIX END ---
 
         // Estimate duration (rough calculation)
         const wordsPerMinute = 150 * utterance.rate;
@@ -501,10 +585,33 @@ class CodeInterpreter {
 
     async executeCommandBlock(commands, startIndex, endIndex, startTime) {
         let currentTime = 0;
-        for (let i = startIndex; i < endIndex; i++) {
-            const duration = await this.executeCommand(commands[i], startTime + currentTime);
-            currentTime += duration;
+        let i = startIndex;
+        
+        while (i < endIndex) {
+            const command = commands[i];
+            const parts = command.split(/\s+/);
+            const cmd = parts[0];
+            
+            // Handle control flow commands here, not in executeCommand
+            if (cmd === 'if') {
+                const result = await this.executeIf(parts, startTime + currentTime, commands, i);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else if (cmd === 'for') {
+                const result = await this.executeFor(parts, startTime + currentTime, commands, i);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else if (cmd === 'endif' || cmd === 'endfor') {
+                // These should be handled by their respective start commands
+                i++;
+            } else {
+                // Regular commands
+                const duration = await this.executeCommand(command, startTime + currentTime);
+                currentTime += duration;
+                i++;
+            }
         }
+        
         return { duration: currentTime };
     }
 
@@ -734,19 +841,63 @@ class CodeInterpreter {
         for (let i = 1; i < parts.length; i++) {
             if (parts[i].includes('=')) {
                 const [key, value] = parts[i].split('=');
-                params[key] = value;
+                params[key] = this.parseValue(value);
             } else {
                 blockNames.push(parts[i]);
             }
         }
 
-        // Play blocks simultaneously
-        const promises = blockNames.map(blockName => {
-            return this.executeBlock(blockName, startTime, params);
+        if (blockNames.length === 0) {
+            return 0;
+        }
+
+        // Estimate durations for all blocks
+        const blockDurations = blockNames.map(name => ({
+            name,
+            duration: this.estimateDuration(name)
+        }));
+
+        // Find the maximum duration among all blocks
+        const maxDuration = Math.max(...blockDurations.map(b => b.duration), 0);
+
+        if (maxDuration === 0) {
+            // If max duration is 0, just play all blocks once simultaneously
+            const promises = blockNames.map(blockName => this.executeBlock(blockName, startTime, params));
+            await Promise.all(promises);
+            // Since duration is 0, we can return 0, but let's estimate just in case
+            const durations = blockNames.map(name => this.estimateDuration(name));
+            return Math.max(...durations, 0);
+        }
+
+        const allExecutionPromises = [];
+
+        // Schedule all block executions
+        blockDurations.forEach(blockInfo => {
+            const { name, duration } = blockInfo;
+
+            if (duration <= 0) {
+                // Play once if duration is 0
+                allExecutionPromises.push(this.executeBlock(name, startTime, params));
+            } else {
+                // Loop the block to fill the maxDuration
+                const loopCount = Math.ceil(maxDuration / duration);
+
+                for (let i = 0; i < loopCount; i++) {
+                    if (!this.isRunning) break;
+                    const loopStartTime = startTime + (i * duration);
+                    // Ensure we don't schedule past the max duration
+                    if (loopStartTime < startTime + maxDuration) {
+                        allExecutionPromises.push(this.executeBlock(name, loopStartTime, params));
+                    }
+                }
+            }
         });
 
-        const durations = await Promise.all(promises);
-        return Math.max(...durations, 0);
+        // Wait for all scheduled blocks to complete their execution logic
+        await Promise.all(allExecutionPromises);
+
+        // The total duration of the play command is the duration of the longest block
+        return maxDuration;
     }
 
     async executeLoop(parts, startTime) {
@@ -1042,6 +1193,7 @@ class CodeInterpreter {
     stop() {
         this.isRunning = false;
         this.currentPosition = 0;
+        this.activeUtterances.length = 0; // Clear any referenced utterances
 
         // Stop audio engine
         if (this.audioEngine) {

@@ -1055,8 +1055,8 @@ class AudioEngine {
             },
 
             generateTone: (frequency, duration = 1, waveType = 'sine', when = 0, volume = 1, pan = 0, outputNode = null) => {
-                // Use the offline current time plus the when parameter
-                const absoluteWhen = offlineCurrentTime + when;
+                // Use the offline current time plus the when parameter, ensuring it's never negative
+                const absoluteWhen = Math.max(0, offlineCurrentTime + when);
                 console.log(`Generating tone ${frequency}Hz at offline time ${absoluteWhen} (currentTime: ${offlineCurrentTime}, when: ${when})`);
                 return this.generateOfflineTone(frequency, duration, offlineContext, outputNode || offlineEngine.eq.low, absoluteWhen, waveType, volume);
             },
@@ -1332,6 +1332,37 @@ class AudioEngine {
                 window.codeInterpreter.variables.set(parts[1], parseFloat(parts[2]) || 0);
                 return 0;
 
+            case 'tts':
+                // For offline rendering, we can't use actual TTS, so we estimate duration and add silence
+                console.warn('TTS not supported in offline rendering, adding estimated silence');
+                
+                // Extract text and estimate duration (same logic as in CodeInterpreter.executeTTS)
+                let text = '';
+                let paramStartIndex = 1;
+                
+                if (parts[1] && parts[1].startsWith('"')) {
+                    const quotedText = [];
+                    for (let i = 1; i < parts.length; i++) {
+                        quotedText.push(parts[i]);
+                        if (parts[i].endsWith('"')) {
+                            paramStartIndex = i + 1;
+                            break;
+                        }
+                    }
+                    text = quotedText.join(' ').replace(/"/g, '');
+                } else {
+                    text = parts[1] || 'Hello';
+                    paramStartIndex = 2;
+                }
+                
+                const rate = parseFloat(parts[paramStartIndex] || '1');
+                const adjustedRate = rate * (offlineEngine.bpm / 120);
+                const wordsPerMinute = 150 * adjustedRate;
+                const wordCount = text.split(' ').length;
+                const estimatedDuration = (wordCount / wordsPerMinute) * 60;
+                
+                return estimatedDuration;
+
             default:
                 console.warn(`Unknown offline command: ${cmd}`);
                 return 0;
@@ -1407,33 +1438,34 @@ class AudioEngine {
     }
 
     generateOfflineTone(frequency, duration, offlineContext, outputNode, when, waveType = 'sine', volume = 1) {
-        const oscillator = offlineContext.createOscillator();
-        const gainNode = offlineContext.createGain();
+    const oscillator = offlineContext.createOscillator();
+    const gainNode = offlineContext.createGain();
 
-        oscillator.type = waveType;
-        oscillator.frequency.value = frequency;
-        gainNode.gain.value = 0;
+    oscillator.type = waveType;
+    oscillator.frequency.value = frequency;
+    gainNode.gain.value = 0;
 
-        oscillator.connect(gainNode);
-        gainNode.connect(outputNode);
+    oscillator.connect(gainNode);
+    gainNode.connect(outputNode);
 
-        const startTime = when;
-        const endTime = startTime + duration;
+    // Ensure startTime is never negative
+    const startTime = Math.max(0, when);
+    const endTime = startTime + duration;
 
-        // ADSR envelope
-        gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(volume * 0.5, startTime + 0.01);
-        gainNode.gain.linearRampToValueAtTime(volume * 0.4, startTime + 0.1);
-        gainNode.gain.setValueAtTime(volume * 0.3, endTime - 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, endTime);
+    // ADSR envelope with safe time values
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.5, Math.max(startTime + 0.01, startTime + duration * 0.1));
+    gainNode.gain.linearRampToValueAtTime(volume * 0.4, Math.max(startTime + 0.1, endTime - duration * 0.1));
+    gainNode.gain.setValueAtTime(volume * 0.3, Math.max(endTime - 0.1, endTime - duration * 0.1));
+    gainNode.gain.exponentialRampToValueAtTime(0.001, endTime);
 
-        // Schedule the tone to start and stop at the specified times
-        oscillator.start(startTime);
-        oscillator.stop(endTime);
+    // Schedule the tone to start and stop at the specified times
+    oscillator.start(startTime);
+    oscillator.stop(endTime);
 
-        console.log(`Scheduled tone ${frequency}Hz for ${duration}s at time ${when}`);
-        return oscillator;
-    }
+    console.log(`Scheduled tone ${frequency}Hz for ${duration}s at time ${startTime}`);
+    return oscillator;
+}
 
     audioBufferToWAV(buffer) {
         const length = buffer.length;
