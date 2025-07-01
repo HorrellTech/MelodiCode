@@ -240,6 +240,11 @@ class CodeInterpreter {
                 if (parts.length < 3) {
                     return { valid: false, error: 'effect command requires effect type and parameters' };
                 }
+                const effectType = parts[1];
+                const validEffects = ['reverb', 'delay', 'filter', 'distortion', 'chorus'];
+                if (!validEffects.includes(effectType)) {
+                    return { valid: false, error: `Unknown effect type: ${effectType}. Valid effects: ${validEffects.join(', ')}` };
+                }
                 break;
             case 'if':
                 if (parts.length < 4) {
@@ -449,16 +454,19 @@ class CodeInterpreter {
             const commands = this.customSamples.get(sampleName);
             // Run all commands in parallel at the same startTime
             await Promise.all(commands.map(command =>
-                this.executeCommand(command, startTime)
+                this.executeCommand(command, startTime, effectNodes)
             ));
             return 0;
         }
 
-        // Instead of connecting to eq.low, connect to effect chain if present
+        // Connect to effect chain if present, otherwise use default output
         let outputNode = this.audioEngine.eq.low;
-        if (effectNodes && effectNodes.length > 0) {
+        if (effectNodes && typeof effectNodes.connect === 'function') {
+            outputNode = effectNodes;
+        } else if (effectNodes && effectNodes.length > 0) {
             outputNode = effectNodes[0];
         }
+
         this.audioEngine.playSample(
             sampleName,
             pitch,
@@ -492,10 +500,14 @@ class CodeInterpreter {
             frequency = parseFloat(noteOrFreq);
         }
 
+        // Connect to effect chain if present, otherwise use default output
         let outputNode = this.audioEngine.eq.low;
-        if (effectNodes && effectNodes.length > 0) {
+        if (effectNodes && typeof effectNodes.connect === 'function') {
+            outputNode = effectNodes;
+        } else if (effectNodes && effectNodes.length > 0) {
             outputNode = effectNodes[0];
         }
+
         this.audioEngine.generateTone(
             frequency,
             durationInSeconds,
@@ -728,58 +740,153 @@ class CodeInterpreter {
         let effectInputNode = this.audioEngine.eq.low; // Default output
         if (this.effects.has(blockName) && this.audioEngine) {
             const ctx = this.audioEngine.audioContext;
-            let lastNode = null;
-            let dryWetNodes = [];
-            for (const effect of this.effects.get(blockName)) {
+            const effects = this.effects.get(blockName);
+            let currentNode = this.audioEngine.eq.low; // Start with default output
+
+            // Build effect chain from last to first (reverse order)
+            for (let i = effects.length - 1; i >= 0; i--) {
+                const effect = effects[i];
+                let effectNode = null;
+                let wetGain = null;
+                let dryGain = null;
+
                 if (effect.type === 'reverb') {
-                    // Create reverb node
-                    const reverb = ctx.createConvolver();
+                    effectNode = ctx.createConvolver();
                     if (this.audioEngine.reverb && this.audioEngine.reverb.buffer) {
-                        reverb.buffer = this.audioEngine.reverb.buffer;
+                        effectNode.buffer = this.audioEngine.reverb.buffer;
                     }
-                    // Dry/wet mix
-                    const wetGain = ctx.createGain();
-                    wetGain.gain.value = 0.5;
-                    const dryGain = ctx.createGain();
-                    dryGain.gain.value = 0.5;
-                    dryWetNodes.push({ wet: reverb, wetGain, dryGain });
-                    lastNode = { wet: reverb, wetGain, dryGain };
+
+                    // Create wet/dry mix
+                    wetGain = ctx.createGain();
+                    dryGain = ctx.createGain();
+                    const wetAmount = parseFloat(effect.params[0]) || 0.3;
+                    wetGain.gain.value = wetAmount;
+                    dryGain.gain.value = 1 - wetAmount;
+
+                    // Connect: input -> [dry path, wet path] -> output
+                    effectNode.connect(wetGain);
+                    wetGain.connect(currentNode);
+                    dryGain.connect(currentNode);
+
+                    // Create input splitter
+                    const splitter = ctx.createGain();
+                    splitter.connect(effectNode); // to wet
+                    splitter.connect(dryGain);    // to dry
+
+                    currentNode = splitter;
+
                 } else if (effect.type === 'delay') {
-                    // Create delay node
-                    const delay = ctx.createDelay();
-                    delay.delayTime.value = parseFloat(effect.params[0]) || 0.3;
-                    // Dry/wet mix
-                    const wetGain = ctx.createGain();
-                    wetGain.gain.value = 0.5;
-                    const dryGain = ctx.createGain();
-                    dryGain.gain.value = 0.5;
-                    dryWetNodes.push({ wet: delay, wetGain, dryGain });
-                    lastNode = { wet: delay, wetGain, dryGain };
-                }
-                // Add more effects as needed
-            }
-            // Build the chain: connect all wet nodes in series, dry always goes to output
-            if (dryWetNodes.length > 0) {
-                // Connect wet chain
-                for (let i = 0; i < dryWetNodes.length - 1; i++) {
-                    dryWetNodes[i].wet.connect(dryWetNodes[i].wetGain);
-                    dryWetNodes[i].wetGain.connect(dryWetNodes[i + 1].wet);
-                }
-                // Last wet node to output
-                const last = dryWetNodes[dryWetNodes.length - 1];
-                last.wet.connect(last.wetGain);
-                last.wetGain.connect(effectInputNode);
-                // All dry nodes to output
-                dryWetNodes.forEach(node => node.dryGain.connect(effectInputNode));
-                // The input for all sources should be the *first* dryWetNode
-                effectInputNode = {
-                    connect: (src) => {
-                        // src is a node (e.g. gainNode or panNode)
-                        src.connect(dryWetNodes[0].wet);
-                        src.connect(dryWetNodes[0].dryGain);
+                    effectNode = ctx.createDelay(1); // Max 1 second delay
+                    const delayTime = parseFloat(effect.params[0]) || 0.3;
+                    const feedback = parseFloat(effect.params[1]) || 0.3;
+                    const wetAmount = parseFloat(effect.params[2]) || 0.3;
+
+                    effectNode.delayTime.value = delayTime;
+
+                    // Create feedback loop
+                    const feedbackGain = ctx.createGain();
+                    feedbackGain.gain.value = feedback;
+                    effectNode.connect(feedbackGain);
+                    feedbackGain.connect(effectNode);
+
+                    // Create wet/dry mix
+                    wetGain = ctx.createGain();
+                    dryGain = ctx.createGain();
+                    wetGain.gain.value = wetAmount;
+                    dryGain.gain.value = 1 - wetAmount;
+
+                    effectNode.connect(wetGain);
+                    wetGain.connect(currentNode);
+                    dryGain.connect(currentNode);
+
+                    const splitter = ctx.createGain();
+                    splitter.connect(effectNode);
+                    splitter.connect(dryGain);
+
+                    currentNode = splitter;
+
+                } else if (effect.type === 'filter') {
+                    effectNode = ctx.createBiquadFilter();
+                    const filterType = effect.params[0] || 'lowpass';
+                    const frequency = parseFloat(effect.params[1]) || 1000;
+                    const q = parseFloat(effect.params[2]) || 1;
+
+                    effectNode.type = filterType;
+                    effectNode.frequency.value = frequency;
+                    effectNode.Q.value = q;
+
+                    effectNode.connect(currentNode);
+                    currentNode = effectNode;
+
+                } else if (effect.type === 'distortion') {
+                    effectNode = ctx.createWaveShaper();
+                    const amount = parseFloat(effect.params[0]) || 10;
+                    const samples = 44100;
+                    const curve = new Float32Array(samples);
+                    const deg = Math.PI / 180;
+
+                    for (let i = 0; i < samples; i++) {
+                        const x = (i * 2) / samples - 1;
+                        curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
                     }
-                };
+
+                    effectNode.curve = curve;
+                    effectNode.oversample = '4x';
+
+                    effectNode.connect(currentNode);
+                    currentNode = effectNode;
+
+                } else if (effect.type === 'chorus') {
+                    // Simple chorus using multiple delays
+                    const rate = parseFloat(effect.params[0]) || 1;
+                    const depth = parseFloat(effect.params[1]) || 0.002;
+                    const wetAmount = parseFloat(effect.params[2]) || 0.3;
+
+                    const delay1 = ctx.createDelay(0.1);
+                    const delay2 = ctx.createDelay(0.1);
+                    const lfo1 = ctx.createOscillator();
+                    const lfo2 = ctx.createOscillator();
+                    const lfoGain1 = ctx.createGain();
+                    const lfoGain2 = ctx.createGain();
+
+                    lfo1.frequency.value = rate;
+                    lfo2.frequency.value = rate * 1.1; // Slightly different rate
+                    lfoGain1.gain.value = depth;
+                    lfoGain2.gain.value = depth;
+
+                    lfo1.connect(lfoGain1);
+                    lfo2.connect(lfoGain2);
+                    lfoGain1.connect(delay1.delayTime);
+                    lfoGain2.connect(delay2.delayTime);
+
+                    delay1.delayTime.value = 0.01;
+                    delay2.delayTime.value = 0.015;
+
+                    wetGain = ctx.createGain();
+                    dryGain = ctx.createGain();
+                    wetGain.gain.value = wetAmount;
+                    dryGain.gain.value = 1 - wetAmount;
+
+                    const chorusMix = ctx.createGain();
+                    delay1.connect(chorusMix);
+                    delay2.connect(chorusMix);
+                    chorusMix.connect(wetGain);
+                    wetGain.connect(currentNode);
+                    dryGain.connect(currentNode);
+
+                    const splitter = ctx.createGain();
+                    splitter.connect(delay1);
+                    splitter.connect(delay2);
+                    splitter.connect(dryGain);
+
+                    lfo1.start();
+                    lfo2.start();
+
+                    currentNode = splitter;
+                }
             }
+
+            effectInputNode = currentNode;
         }
         // --- EFFECT CHAIN PATCH END ---
 
@@ -804,11 +911,11 @@ class CodeInterpreter {
                     currentTime += result.duration;
                     i = result.nextIndex;
                 } else if (cmd === 'pattern') {
-                    const duration = await this.executePattern(parts, startTime + currentTime);
+                    const duration = await this.executePattern(parts, startTime + currentTime, effectInputNode);
                     currentTime += duration;
                     i++;
                 } else if (cmd === 'sequence') {
-                    const duration = await this.executeSequence(parts, startTime + currentTime);
+                    const duration = await this.executeSequence(parts, startTime + currentTime, effectInputNode);
                     currentTime += duration;
                     i++;
                 } else {
