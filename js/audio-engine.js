@@ -920,6 +920,11 @@ class AudioEngine {
 
         // Stop all playing sources
         this.activeBlocks.clear();
+
+        // Stop text-to-speech
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.cancel();
+        }
     }
 
     async exportWAV(duration = 10) {

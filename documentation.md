@@ -137,6 +137,106 @@ endfor
 
 ---
 
+## 🎛️ Effects
+
+Apply audio effects to blocks by adding them in parentheses after the block definition. Effects process all audio within that block.
+
+### **Effect Syntax**
+
+```melodicode
+[block_name] (effect_type param1 param2...)
+    // Block commands here
+[end]
+```
+
+You can chain multiple effects:
+
+```melodicode
+[block_name] (reverb 0.4) (delay 0.3 0.2 0.3)
+    // Block commands here
+[end]
+```
+
+### **Available Effects**
+
+**Reverb:**
+```melodicode
+[melody] (reverb <wetAmount>)
+    tone C4 1 sine 0.8
+[end]
+```
+- `wetAmount`: Reverb intensity (0-1, default: 0.3)
+
+**Delay:**
+```melodicode
+[melody] (delay <delayTime> <feedback> <wetAmount>)
+    tone C4 1 sine 0.8
+[end]
+```
+- `delayTime`: Delay time in seconds (default: 0.3)
+- `feedback`: Echo feedback amount (0-1, default: 0.3)
+- `wetAmount`: Delay mix level (0-1, default: 0.3)
+
+**Filter:**
+```melodicode
+[melody] (filter <type> <frequency> <Q>)
+    tone C4 1 sine 0.8
+[end]
+```
+- `type`: lowpass, highpass, bandpass, notch (default: lowpass)
+- `frequency`: Cutoff frequency in Hz (default: 1000)
+- `Q`: Filter resonance (default: 1)
+
+**Distortion:**
+```melodicode
+[melody] (distortion <amount>)
+    tone C4 1 sine 0.8
+[end]
+```
+- `amount`: Distortion intensity (default: 10)
+
+**Chorus:**
+```melodicode
+[melody] (chorus <rate> <depth> <wetAmount>)
+    tone C4 1 sine 0.8
+[end]
+```
+- `rate`: LFO rate in Hz (default: 1)
+- `depth`: Modulation depth (default: 0.002)
+- `wetAmount`: Chorus mix level (0-1, default: 0.3)
+
+### **Effects Example**
+
+```melodicode
+bpm 120
+
+[clean_melody]
+    tone C4 0.5 sine 0.7
+    tone E4 0.5 sine 0.7
+    tone G4 1 sine 0.7
+[end]
+
+[reverb_melody] (reverb 0.6)
+    tone C5 0.5 sine 0.6
+    tone E5 0.5 sine 0.6
+    tone G5 1 sine 0.6
+[end]
+
+[filtered_bass] (filter lowpass 400 2) (distortion 5)
+    tone C2 2 sawtooth 0.8
+[end]
+
+[main]
+    play clean_melody
+    wait 2
+    play reverb_melody filtered_bass
+[end]
+
+play main
+```
+
+---
+
 ## 🚀 Advanced Example: Pattern-based Song
 
 ```melodicode
@@ -252,6 +352,51 @@ Set the tempo in beats per minute:
 
 ```melodicode
 bpm <value>
+```
+
+---
+
+
+
+### 6. **Text-to-Speech**
+
+Generate spoken audio using the browser's built-in text-to-speech:
+
+```melodicode
+tts "<text>" [speed] [pitch] [voice_id]
+```
+
+- `text`: Text to speak (use quotes for multiple words)
+- `speed`: Speech rate 0.1-10 (default: 1, scales with BPM)
+- `pitch`: Voice pitch 0-2 (default: 1)
+- `voice_id`: Voice index 0-N (default: 0)
+
+**Examples:**
+```melodicode
+tts "Hello world" 1.2 1.1 0
+tts "Drop the beat" 1.5 0.8 1
+tts Welcome 0.8 1.2 0  // Single word doesn't need quotes
+```
+
+**TTS in Songs:**
+```melodicode
+bpm 120
+
+[intro]
+    tts "Welcome to my song" 1 1 0
+    wait 3
+    tts "Let the music begin" 1.2 0.9 1
+    wait 2
+[end]
+
+[main]
+    play intro
+    sample kick
+    tts "Drop it" 1.5 1.2 0
+    sample snare
+[end]
+
+play main
 ```
 
 ---

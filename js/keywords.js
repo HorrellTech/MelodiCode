@@ -199,6 +199,16 @@ window.melodicodeKeywords = {
             { name: "depth", desc: "Modulation depth (default: 0.002)" },
             { name: "wetAmount", desc: "Chorus wet/dry mix amount (0-1, default: 0.3)" }
         ]
+    },
+    tts: {
+        description: "Generate text-to-speech audio.",
+        usage: 'tts "< text >" [speed] [pitch] [voice_id]',
+        params: [
+            { name: "text", desc: "Text to speak (use quotes for multiple words)" },
+            { name: "speed", desc: "Speech rate (0.1-10, default: 1)" },
+            { name: "pitch", desc: "Voice pitch (0-2, default: 1)" },
+            { name: "voice_id", desc: "Voice index (0-N, default: 0)" }
+        ]
     }
     // Add more as needed
 };

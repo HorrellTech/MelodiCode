@@ -260,6 +260,15 @@ class CodeInterpreter {
             case 'endfor':
                 // No additional validation needed
                 break;
+            case 'tts':
+                if (parts.length < 2) {
+                    return { valid: false, error: 'tts command requires text' };
+                }
+                // Check if speechSynthesis is available
+                if (typeof speechSynthesis === 'undefined') {
+                    return { valid: false, error: 'Text-to-speech not supported in this browser' };
+                }
+                break;
             default:
                 return { valid: false, error: `Unknown command: ${cmd}` };
         }
@@ -322,6 +331,8 @@ class CodeInterpreter {
                 return this.executePattern(parts, startTime);
             case 'sequence':
                 return this.executeSequence(parts, startTime);
+            case 'tts':
+                return this.executeTTS(parts, startTime);
             default:
                 console.warn(`Unknown command: ${cmd}`);
                 return 0;
@@ -417,6 +428,64 @@ class CodeInterpreter {
         }
 
         return { duration: totalDuration, nextIndex: endforIndex + 1 };
+    }
+
+    async executeTTS(parts, startTime) {
+        // Extract text (handle quoted strings)
+        let text = '';
+        let paramStartIndex = 1;
+
+        // If text starts with quote, find the closing quote
+        if (parts[1] && parts[1].startsWith('"')) {
+            const quotedText = [];
+            for (let i = 1; i < parts.length; i++) {
+                quotedText.push(parts[i]);
+                if (parts[i].endsWith('"')) {
+                    paramStartIndex = i + 1;
+                    break;
+                }
+            }
+            text = quotedText.join(' ').replace(/"/g, '');
+        } else {
+            // Single word
+            text = parts[1] || 'Hello';
+            paramStartIndex = 2;
+        }
+
+        const rate = this.parseValue(parts[paramStartIndex] || '1');     // Speed (0.1 to 10)
+        const pitch = this.parseValue(parts[paramStartIndex + 1] || '1'); // Pitch (0 to 2)
+        const voiceIndex = parseInt(parts[paramStartIndex + 2] || '0');   // Voice ID
+
+        // Adjust rate based on BPM if needed
+        const adjustedRate = rate * (this.bpm / 120); // Scale with BPM
+
+        // Create speech synthesis utterance
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = Math.max(0.1, Math.min(10, adjustedRate));
+        utterance.pitch = Math.max(0, Math.min(2, pitch));
+
+        // Set voice if available
+        const voices = speechSynthesis.getVoices();
+        if (voices.length > 0 && voiceIndex < voices.length) {
+            utterance.voice = voices[voiceIndex];
+        }
+
+        // Schedule the speech
+        const delay = (startTime - this.audioEngine.audioContext.currentTime) * 1000;
+        if (delay > 0) {
+            setTimeout(() => {
+                speechSynthesis.speak(utterance);
+            }, Math.max(0, delay));
+        } else {
+            speechSynthesis.speak(utterance);
+        }
+
+        // Estimate duration (rough calculation)
+        const wordsPerMinute = 150 * utterance.rate;
+        const wordCount = text.split(' ').length;
+        const estimatedDuration = (wordCount / wordsPerMinute) * 60;
+
+        return estimatedDuration;
     }
 
     findMatchingEnd(commands, startIndex, startKeyword, endKeyword) {
@@ -977,6 +1046,11 @@ class CodeInterpreter {
         // Stop audio engine
         if (this.audioEngine) {
             this.audioEngine.stop();
+        }
+
+        // Stop text-to-speech when stopping code execution
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.cancel();
         }
     }
 
