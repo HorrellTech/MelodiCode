@@ -609,3 +609,44 @@
     display: none !important;
   }
 }
+
+/* Enhanced modal handling for mobile */
+@media (max-width: 768px) {
+    .modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        z-index: 9999 !important;
+        display: none !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(0,0,0,0.8) !important;
+        padding: 1rem !important;
+        box-sizing: border-box !important;
+    }
+    
+    .modal.show {
+        display: flex !important;
+    }
+    
+    .modal-content {
+        z-index: 10000 !important;
+        max-width: 95vw !important;
+        max-height: 90vh !important;
+        max-height: 90dvh !important;
+        overflow-y: auto !important;
+        position: relative !important;
+    }
+    
+    /* Prevent touch events from interfering with modals */
+    .modal.show .modal-content {
+        pointer-events: auto !important;
+    }
+    
+    .modal:not(.show) {
+        display: none !important;
+    }
+}

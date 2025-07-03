@@ -671,19 +671,33 @@ play main`);
     }
 
     showSettings() {
-        document.getElementById('settingsModal').classList.add('show');
+        const modal = document.getElementById('settingsModal');
+        modal.classList.add('show');
+        modal.style.display = 'flex'; // Ensure it's visible
     }
 
     hideSettings() {
-        document.getElementById('settingsModal').classList.remove('show');
+        const modal = document.getElementById('settingsModal');
+        modal.classList.remove('show');
+        // Don't set display: none immediately on mobile
+        if (window.innerWidth > 768) {
+            modal.style.display = 'none';
+        }
     }
 
     showGemini() {
-        document.getElementById('geminiModal').classList.add('show');
+        const modal = document.getElementById('geminiModal');
+        modal.classList.add('show');
+        modal.style.display = 'flex'; // Ensure it's visible
     }
 
     hideGemini() {
-        document.getElementById('geminiModal').classList.remove('show');
+        const modal = document.getElementById('geminiModal');
+        modal.classList.remove('show');
+        // Don't set display: none immediately on mobile
+        if (window.innerWidth > 768) {
+            modal.style.display = 'none';
+        }
     }
 
     switchTab(tabName) {
@@ -1007,7 +1021,7 @@ play main`
             // Get current line to check indentation
             const currentLine = window.editor.getLine(cursor.line);
             const leadingWhitespace = currentLine.match(/^\s*/)[0];
-            
+
             // Apply indentation to each line of the template
             const indentedTemplate = template.split('\n').map((line, index) => {
                 if (index === 0) return line; // Don't indent first line
@@ -1016,7 +1030,7 @@ play main`
 
             // Insert the template at cursor position
             window.editor.replaceSelection(indentedTemplate);
-            
+
             // Update UI
             this.updateBlockInspector();
             this.updateStatus(`Inserted ${snippetType} template`);

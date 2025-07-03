@@ -6,13 +6,13 @@ class MobileControls {
         this.touchStartY = 0;
         this.touchThreshold = 50;
         this.isGestureActive = false;
-        
+
         this.init();
     }
 
     init() {
         if (!this.isMobile) return;
-        
+
         this.createMobileLayout();
         this.createMobileArrows();
         this.bindTouchEvents();
@@ -21,6 +21,7 @@ class MobileControls {
         this.handleOrientationChange();
         this.optimizeForMobile();
         this.updateArrowVisibility();
+        this.setupModalHandling();
     }
 
     createMobileLayout() {
@@ -47,7 +48,7 @@ class MobileControls {
         const mainContent = document.querySelector('.main-content');
         const container = document.createElement('div');
         container.className = 'mobile-panel-container';
-        
+
         mainContent.parentNode.insertBefore(container, mainContent);
         container.appendChild(mainContent);
 
@@ -61,13 +62,13 @@ class MobileControls {
         leftArrow.className = 'mobile-arrow left';
         leftArrow.innerHTML = '<i class="fas fa-chevron-left"></i>';
         leftArrow.id = 'mobileArrowLeft';
-        
+
         // Create right arrow
         const rightArrow = document.createElement('button');
         rightArrow.className = 'mobile-arrow right';
         rightArrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
         rightArrow.id = 'mobileArrowRight';
-        
+
         document.body.appendChild(leftArrow);
         document.body.appendChild(rightArrow);
     }
@@ -112,7 +113,7 @@ class MobileControls {
     updateArrowVisibility() {
         const leftArrow = document.getElementById('mobileArrowLeft');
         const rightArrow = document.getElementById('mobileArrowRight');
-        
+
         if (!leftArrow || !rightArrow) return;
 
         // Reset classes
@@ -147,10 +148,10 @@ class MobileControls {
     createTouchIndicators() {
         const leftIndicator = document.createElement('div');
         leftIndicator.className = 'touch-indicator left';
-        
+
         const rightIndicator = document.createElement('div');
         rightIndicator.className = 'touch-indicator right';
-        
+
         const mainContent = document.querySelector('.main-content');
         mainContent.appendChild(leftIndicator);
         mainContent.appendChild(rightIndicator);
@@ -158,7 +159,7 @@ class MobileControls {
 
     bindTouchEvents() {
         const mainContent = document.querySelector('.main-content');
-        
+
         // Touch events for panel swiping
         mainContent.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
         mainContent.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
@@ -174,7 +175,7 @@ class MobileControls {
 
     handleTouchStart(e) {
         if (e.touches.length !== 1) return;
-        
+
         this.touchStartX = e.touches[0].clientX;
         this.touchStartY = e.touches[0].clientY;
         this.isGestureActive = true;
@@ -200,7 +201,7 @@ class MobileControls {
 
     handleTouchEnd(e) {
         if (!this.isGestureActive) return;
-        
+
         const touchX = e.changedTouches[0].clientX;
         const deltaX = touchX - this.touchStartX;
 
@@ -235,7 +236,7 @@ class MobileControls {
     updateTouchIndicators(deltaX) {
         const leftIndicator = document.querySelector('.touch-indicator.left');
         const rightIndicator = document.querySelector('.touch-indicator.right');
-        
+
         if (deltaX > 0) {
             leftIndicator.style.opacity = Math.min(1, deltaX / 100);
             rightIndicator.style.opacity = 0.5;
@@ -310,7 +311,7 @@ class MobileControls {
 
     addTouchFeedback() {
         const buttons = document.querySelectorAll('.btn, .tree-item, .mobile-nav-btn');
-        
+
         buttons.forEach(button => {
             button.addEventListener('touchstart', this.createRippleEffect.bind(this), { passive: true });
         });
@@ -320,15 +321,15 @@ class MobileControls {
         const button = e.currentTarget;
         const rect = button.getBoundingClientRect();
         const touch = e.touches[0];
-        
+
         const ripple = document.createElement('div');
         ripple.className = 'touch-ripple';
         ripple.style.left = (touch.clientX - rect.left - 10) + 'px';
         ripple.style.top = (touch.clientY - rect.top - 10) + 'px';
-        
+
         button.style.position = 'relative';
         button.appendChild(ripple);
-        
+
         setTimeout(() => {
             if (ripple.parentNode) {
                 ripple.parentNode.removeChild(ripple);
@@ -337,13 +338,18 @@ class MobileControls {
     }
 
     preventDefaultTouch(e) {
+        // Don't prevent touch events on modals
+        if (e.target.closest('.modal.show')) {
+            return; // Allow normal touch behavior in open modals
+        }
+
         // Prevent default on specific elements to avoid unwanted behaviors
         const target = e.target;
         const preventElements = [
-            '.btn', '.tree-item', '.mobile-nav-btn', 
-            'input[type="range"]', '.modal-content'
+            '.btn', '.tree-item', '.mobile-nav-btn',
+            'input[type="range"]'
         ];
-        
+
         if (preventElements.some(selector => target.closest(selector))) {
             if (e.type === 'touchstart' && target.tagName !== 'INPUT') {
                 e.preventDefault();
@@ -359,6 +365,41 @@ class MobileControls {
         }
     }
 
+    setupModalHandling() {
+        // Ensure modal buttons work on mobile
+        const modalTriggers = document.querySelectorAll('#settingsBtn, #geminiBtn, #docsBtn');
+
+        modalTriggers.forEach(btn => {
+            // Remove existing listeners and add fresh ones
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                btn.click(); // Trigger the click event
+            }, { passive: false });
+        });
+
+        // Handle modal close buttons
+        const closeButtons = document.querySelectorAll('.close-btn, #closeSettings, #closeGemini, #closeDocs');
+
+        closeButtons.forEach(btn => {
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                btn.click();
+            }, { passive: false });
+        });
+
+        // Handle modal backdrop clicks
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('touchend', (e) => {
+                if (e.target === modal) {
+                    e.preventDefault();
+                    modal.classList.remove('show');
+                }
+            }, { passive: false });
+        });
+    }
+
     handleOrientationChange() {
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
@@ -370,7 +411,7 @@ class MobileControls {
         window.addEventListener('resize', () => {
             const wasMobile = this.isMobile;
             this.isMobile = window.innerWidth <= 768;
-            
+
             if (wasMobile !== this.isMobile) {
                 if (this.isMobile) {
                     this.init();
@@ -384,7 +425,7 @@ class MobileControls {
     updateLayout() {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
-        
+
         // Force layout recalculation
         const mainContent = document.querySelector('.main-content');
         if (mainContent) {
@@ -409,16 +450,16 @@ class MobileControls {
         const ranges = document.querySelectorAll('input[type="range"]');
         ranges.forEach(range => {
             range.style.height = '44px';
-            
+
             // Add progress tracking for better visual feedback
             const updateProgress = () => {
                 const value = (range.value - range.min) / (range.max - range.min) * 100;
                 range.style.setProperty('--value', `${value}%`);
             };
-            
+
             // Initial update
             updateProgress();
-            
+
             // Update on change
             range.addEventListener('input', updateProgress);
             range.addEventListener('change', updateProgress);
@@ -436,7 +477,7 @@ class MobileControls {
             chatInput.style.fontSize = '16px'; // Prevent zoom on iOS
         }
     }
-    
+
     disableMobileMode() {
         // Remove mobile navigation
         const mobileNav = document.querySelector('.mobile-nav');
