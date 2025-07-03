@@ -28,6 +28,8 @@ play main
 
 Sample blocks group related commands to be played all at once. Each sample block starts with `<block_name>` and ends with `<end>`. You can define as many sample blocks as you want.
 
+### NOTE: You can NOT nest blocks inside other blocks at this time!
+
 ```melodicode
 <kick_hard>
     // Your tones, samples etc here to be played together, generating a unique sample

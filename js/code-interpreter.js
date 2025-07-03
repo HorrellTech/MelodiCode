@@ -526,6 +526,10 @@ class CodeInterpreter {
         // Adjust rate based on BPM if needed
         const adjustedRate = rate * (this.bpm / 120); // Scale with BPM
 
+        // Calculate absolute timing based on audio context
+        const audioContextTime = this.audioEngine.audioContext.currentTime;
+        const absoluteStartTime = audioContextTime + startTime;
+
         // Create a simple unique identifier based on execution order and timing
         const executionId = Date.now() + Math.random();
         const ttsId = `tts_${executionId}`;
@@ -539,7 +543,7 @@ class CodeInterpreter {
             this.pendingTTSTimeouts = new Map();
         }
 
-        console.log(`Starting TTS: "${text}" with ID: ${ttsId} at time: ${startTime}`);
+        console.log(`Starting TTS: "${text}" with ID: ${ttsId} scheduled for absolute time: ${absoluteStartTime} (current: ${audioContextTime}, offset: ${startTime})`);
 
         // Create speech synthesis utterance
         const utterance = new SpeechSynthesisUtterance(text);
@@ -577,29 +581,43 @@ class CodeInterpreter {
         this.activeTTSCalls.add(ttsId);
         this.activeUtterances.push(utterance);
 
-        // Calculate timing
-        const delayInSeconds = startTime - this.audioEngine.audioContext.currentTime;
-        const delayInMilliseconds = Math.max(0, delayInSeconds * 1000);
+        // Use a more precise timing mechanism based on audio context
+        const scheduleWithPreciseTiming = () => {
+            const checkTime = () => {
+                const currentTime = this.audioEngine.audioContext.currentTime;
 
-        // Schedule the speech with better error handling
-        const timeoutId = setTimeout(() => {
-            // Only execute if still active and running
-            if (this.isRunning && this.activeTTSCalls.has(ttsId)) {
-                console.log(`Speaking: "${text}" (${ttsId}) at context time: ${this.audioEngine.audioContext.currentTime}`);
-                try {
-                    speechSynthesis.speak(utterance);
-                } catch (error) {
-                    console.error(`Failed to speak TTS "${text}":`, error);
+                // Check if it's time to play (within 50ms tolerance)
+                if (currentTime >= absoluteStartTime - 0.05) {
+                    if (this.isRunning && this.activeTTSCalls.has(ttsId)) {
+                        console.log(`Speaking: "${text}" (${ttsId}) at context time: ${currentTime} (target was: ${absoluteStartTime})`);
+                        try {
+                            speechSynthesis.speak(utterance);
+                        } catch (error) {
+                            console.error(`Failed to speak TTS "${text}":`, error);
+                            cleanup();
+                        }
+                    } else {
+                        console.log(`Skipping TTS "${text}" (${ttsId}) - execution stopped or already processed`);
+                        cleanup();
+                    }
+                    return; // Stop checking
+                }
+
+                // Continue checking if we haven't reached the target time yet
+                if (this.isRunning && this.activeTTSCalls.has(ttsId)) {
+                    // Check again in 10ms
+                    setTimeout(checkTime, 10);
+                } else {
                     cleanup();
                 }
-            } else {
-                console.log(`Skipping TTS "${text}" (${ttsId}) - execution stopped or already processed`);
-                cleanup();
-            }
-        }, delayInMilliseconds);
+            };
 
-        // Store timeout reference
-        this.pendingTTSTimeouts.set(ttsId, timeoutId);
+            // Start the timing check
+            checkTime();
+        };
+
+        // Start the precise timing scheduler
+        scheduleWithPreciseTiming();
 
         // Estimate duration (rough calculation)
         const wordsPerMinute = 150 * utterance.rate;
