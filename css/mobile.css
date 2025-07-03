@@ -510,6 +510,10 @@
         height: 100%;
         transition: var(--mobile-panel-transition);
         will-change: transform;
+        /* Enable scrolling for panel content */
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
     }
 
     /* Panel positioning for screen-like behavior */
@@ -559,20 +563,142 @@
     }
 }
 
-/* Arrow visibility based on current panel */
-.mobile-arrow.left.show-on-center,
-.mobile-arrow.left.show-on-right {
-    display: flex;
+/* Enhanced scrolling for panel sections */
+@media (max-width: 768px) {
+    .panel-section {
+        padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
+        /* Ensure sections can scroll within panels */
+        max-height: none;
+        overflow: visible;
+    }
+
+    /* Specific scrolling areas within panels */
+    .file-tree,
+    .output-log,
+    #blockInspector {
+        max-height: 300px; /* Set reasonable max heights */
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-right: 10px; /* Space for scrollbar */
+    }
+
+    /* Code editor container scrolling */
+    .code-editor {
+        height: calc(100vh - 200px); /* Adjust based on your layout */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Make sure CodeMirror editor is scrollable */
+    .CodeMirror {
+        height: auto;
+        min-height: 300px;
+        max-height: calc(100vh - 300px);
+    }
+
+    .CodeMirror-scroll {
+        overflow-y: auto !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
-.mobile-arrow.right.show-on-left,
-.mobile-arrow.right.show-on-center {
-    display: flex;
+/* Better scrollbar styling for mobile (show when scrolling) */
+@media (max-width: 768px) {
+    .panel-section::-webkit-scrollbar,
+    .file-tree::-webkit-scrollbar,
+    .output-log::-webkit-scrollbar,
+    #blockInspector::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .panel-section::-webkit-scrollbar-track,
+    .file-tree::-webkit-scrollbar-track,
+    .output-log::-webkit-scrollbar-track,
+    #blockInspector::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .panel-section::-webkit-scrollbar-thumb,
+    .file-tree::-webkit-scrollbar-thumb,
+    .output-log::-webkit-scrollbar-thumb,
+    #blockInspector::-webkit-scrollbar-thumb {
+        background: var(--accent-color);
+        border-radius: 2px;
+        opacity: 0.5;
+    }
+
+    .panel-section::-webkit-scrollbar-thumb:hover,
+    .file-tree::-webkit-scrollbar-thumb:hover,
+    .output-log::-webkit-scrollbar-thumb:hover,
+    #blockInspector::-webkit-scrollbar-thumb:hover {
+        opacity: 0.8;
+    }
 }
 
-/* Hide arrows when not needed */
-.mobile-arrow:not(.show-on-left):not(.show-on-center):not(.show-on-right) {
-    display: none;
+/* Fix modal scrolling on mobile */
+@media (max-width: 768px) {
+    .modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        z-index: 9999 !important;
+        display: none !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(0,0,0,0.8) !important;
+        padding: 1rem !important;
+        box-sizing: border-box !important;
+        /* Enable scrolling for modal content */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .modal.show {
+        display: flex !important;
+    }
+    
+    .modal-content {
+        z-index: 10000 !important;
+        max-width: 95vw !important;
+        max-height: 90vh !important;
+        max-height: 90dvh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        position: relative !important;
+        margin: auto; /* Center vertically */
+    }
+    
+    .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--spacing-sm);
+    }
+}
+
+/* Ensure touch events work properly with scrolling */
+@media (max-width: 768px) {
+    /* Allow scrolling in specific areas */
+    .panel-section,
+    .file-tree,
+    .output-log,
+    #blockInspector,
+    .modal-body,
+    .code-editor,
+    .CodeMirror-scroll {
+        touch-action: pan-y; /* Allow vertical scrolling */
+    }
+
+    /* Prevent scrolling conflicts with swipe gestures */
+    .main-content {
+        touch-action: pan-x; /* Allow horizontal swiping for panel navigation */
+    }
 }
 
 /* Always show modals above all panels and nav on mobile */
@@ -638,6 +764,7 @@
         max-height: 90vh !important;
         max-height: 90dvh !important;
         overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
         position: relative !important;
     }
     
@@ -648,5 +775,74 @@
     
     .modal:not(.show) {
         display: none !important;
+    }
+}
+
+/* Enhanced mobile toolbar with scrolling */
+@media (max-width: 768px) {
+    .toolbar {
+        height: var(--mobile-toolbar-height);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        flex-wrap: nowrap;
+        /* Enable horizontal scrolling for toolbar */
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        /* Hide scrollbar but keep functionality */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+
+    .toolbar::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+    }
+
+    .toolbar-section {
+        flex-shrink: 0; /* Prevent sections from shrinking */
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        min-width: fit-content; /* Ensure sections maintain their width */
+    }
+
+    /* Ensure all toolbar buttons are touch-friendly */
+    .toolbar .btn {
+        min-width: 44px;
+        min-height: 44px;
+        flex-shrink: 0;
+        padding: var(--spacing-xs);
+    }
+
+    /* Project controls need to scroll horizontally */
+    .project-controls {
+        display: flex;
+        gap: var(--spacing-xs);
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        max-width: 200px; /* Limit width to allow scrolling */
+    }
+
+    .project-controls::-webkit-scrollbar {
+        display: none;
+    }
+
+    .project-controls .btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    /* Transport controls */
+    .transport-controls {
+        flex-shrink: 0;
+        min-width: fit-content;
+    }
+
+    /* Master volume and settings */
+    .master-volume {
+        min-width: 80px;
+        flex-shrink: 0;
     }
 }

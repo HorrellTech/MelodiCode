@@ -22,6 +22,7 @@ class MobileControls {
         this.optimizeForMobile();
         this.updateArrowVisibility();
         this.setupModalHandling();
+        this.setupToolbarScrolling();
     }
 
     createMobileLayout() {
@@ -187,12 +188,29 @@ class MobileControls {
     handleTouchMove(e) {
         if (!this.isGestureActive || e.touches.length !== 1) return;
 
+        // Don't interfere with scrolling in scrollable areas
+        const scrollableAreas = [
+            '.panel-section',
+            '.file-tree',
+            '.output-log',
+            '#blockInspector',
+            '.code-editor',
+            '.CodeMirror-scroll',
+            '.modal-body',
+            '.toolbar', // Add toolbar
+            '.project-controls' // Add project controls
+        ];
+
+        if (scrollableAreas.some(selector => e.target.closest(selector))) {
+            return; // Allow normal scrolling
+        }
+
         const touchX = e.touches[0].clientX;
         const touchY = e.touches[0].clientY;
         const deltaX = touchX - this.touchStartX;
         const deltaY = touchY - this.touchStartY;
 
-        // Only handle horizontal swipes
+        // Only handle horizontal swipes (and only if not scrolling vertically)
         if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
             e.preventDefault();
             this.updateTouchIndicators(deltaX);
@@ -337,17 +355,68 @@ class MobileControls {
         }, 300);
     }
 
+    setupToolbarScrolling() {
+        const toolbar = document.querySelector('.toolbar');
+        const projectControls = document.querySelector('.project-controls');
+
+        if (toolbar) {
+            // Enable smooth scrolling for toolbar
+            toolbar.addEventListener('touchmove', (e) => {
+                // Allow horizontal scrolling
+                e.stopPropagation();
+            }, { passive: true });
+        }
+
+        if (projectControls) {
+            // Enable smooth scrolling for project controls
+            projectControls.addEventListener('touchmove', (e) => {
+                // Allow horizontal scrolling
+                e.stopPropagation();
+            }, { passive: true });
+        }
+
+        // Ensure toolbar buttons work properly on touch
+        const toolbarButtons = document.querySelectorAll('.toolbar .btn');
+        toolbarButtons.forEach(btn => {
+            btn.addEventListener('touchend', (e) => {
+                // Prevent double-tap zoom
+                e.preventDefault();
+                btn.click();
+            }, { passive: false });
+        });
+    }
+
     preventDefaultTouch(e) {
         // Don't prevent touch events on modals
         if (e.target.closest('.modal.show')) {
             return; // Allow normal touch behavior in open modals
         }
 
+        // Don't prevent scrolling in scrollable areas (including toolbar)
+        const scrollableAreas = [
+            '.panel-section',
+            '.file-tree',
+            '.output-log',
+            '#blockInspector',
+            '.code-editor',
+            '.CodeMirror-scroll',
+            '.modal-body',
+            '.toolbar', // Add toolbar
+            '.project-controls' // Add project controls
+        ];
+
+        if (scrollableAreas.some(selector => e.target.closest(selector))) {
+            // Allow normal scrolling behavior
+            return;
+        }
+
         // Prevent default on specific elements to avoid unwanted behaviors
         const target = e.target;
         const preventElements = [
-            '.btn', '.tree-item', '.mobile-nav-btn',
-            'input[type="range"]'
+            '.btn:not(.toolbar .btn)', // Exclude toolbar buttons from preventDefault
+            '.tree-item:not(.scrollable)',
+            '.mobile-nav-btn',
+            'input[type="range"]:not(.toolbar input[type="range"])'
         ];
 
         if (preventElements.some(selector => target.closest(selector))) {
