@@ -24,112 +24,112 @@ class CodeInterpreter {
     }
 
     parse(code) {
-    try {
-        this.blocks.clear();
-        this.globalCommands = [];
-        this.variables.clear();
-        this.customSamples.clear();
-        this.effects.clear();
+        try {
+            this.blocks.clear();
+            this.globalCommands = [];
+            this.variables.clear();
+            this.customSamples.clear();
+            this.effects.clear();
 
-        // Remove comments (everything after // on each line)
-        const lines = code.split('\n')
-            .map(line => {
-                const idx = line.indexOf('//');
-                if (idx !== -1) {
-                    return line.slice(0, idx).trim();
+            // Remove comments (everything after // on each line)
+            const lines = code.split('\n')
+                .map(line => {
+                    const idx = line.indexOf('//');
+                    if (idx !== -1) {
+                        return line.slice(0, idx).trim();
+                    }
+                    return line.trim();
+                })
+                .filter(line => line); // Remove empty lines
+
+            // Split each line by semicolons and flatten into a single array of commands
+            const allCommands = [];
+            for (const line of lines) {
+                if (line.startsWith('[') || line.startsWith('<') || line === '[end]' || line === '<end>') {
+                    // Don't split block headers/endings by semicolon
+                    allCommands.push(line);
+                } else {
+                    // Split by semicolon and add each non-empty command
+                    const commands = line.split(';').map(cmd => cmd.trim()).filter(cmd => cmd);
+                    allCommands.push(...commands);
                 }
-                return line.trim();
-            })
-            .filter(line => line); // Remove empty lines
-
-        // Split each line by semicolons and flatten into a single array of commands
-        const allCommands = [];
-        for (const line of lines) {
-            if (line.startsWith('[') || line.startsWith('<') || line === '[end]' || line === '<end>') {
-                // Don't split block headers/endings by semicolon
-                allCommands.push(line);
-            } else {
-                // Split by semicolon and add each non-empty command
-                const commands = line.split(';').map(cmd => cmd.trim()).filter(cmd => cmd);
-                allCommands.push(...commands);
-            }
-        }
-
-        let currentBlock = null;
-        let blockContent = [];
-        let inCustomSample = false;
-        let customSampleName = '';
-        let blockEffects = [];
-
-        for (let i = 0; i < allCommands.length; i++) {
-            const line = allCommands[i].trim();
-
-            // Custom sample block start: <blockName>
-            if (line.startsWith('<') && line.endsWith('>') && line !== '<end>') {
-                inCustomSample = true;
-                customSampleName = line.slice(1, -1);
-                blockContent = [];
-                currentBlock = null; // Ensure we are not in a regular block
-                continue;
             }
 
-            // Universal block end: handles both [end] and <end> for any block type
-            if (line === '[end]' || line === '<end>') {
-                if (inCustomSample && customSampleName) {
-                    this.customSamples.set(customSampleName, blockContent.slice());
-                    inCustomSample = false;
-                    customSampleName = '';
+            let currentBlock = null;
+            let blockContent = [];
+            let inCustomSample = false;
+            let customSampleName = '';
+            let blockEffects = [];
+
+            for (let i = 0; i < allCommands.length; i++) {
+                const line = allCommands[i].trim();
+
+                // Custom sample block start: <blockName>
+                if (line.startsWith('<') && line.endsWith('>') && line !== '<end>') {
+                    inCustomSample = true;
+                    customSampleName = line.slice(1, -1);
                     blockContent = [];
-                } else if (currentBlock) {
-                    this.blocks.set(currentBlock, blockContent);
-                    currentBlock = null;
+                    currentBlock = null; // Ensure we are not in a regular block
+                    continue;
+                }
+
+                // Universal block end: handles both [end] and <end> for any block type
+                if (line === '[end]' || line === '<end>') {
+                    if (inCustomSample && customSampleName) {
+                        this.customSamples.set(customSampleName, blockContent.slice());
+                        inCustomSample = false;
+                        customSampleName = '';
+                        blockContent = [];
+                    } else if (currentBlock) {
+                        this.blocks.set(currentBlock, blockContent);
+                        currentBlock = null;
+                        blockContent = [];
+                    }
+                    continue;
+                }
+
+                if (inCustomSample) {
+                    blockContent.push(line);
+                    continue;
+                }
+
+                // Block start with effects: [block] (effect...) (effect2...)
+                const blockHeaderMatch = line.match(/^\[([^\]]+)\](.*)$/);
+                if (blockHeaderMatch && blockHeaderMatch[1].trim() !== 'end') {
+                    const blockName = blockHeaderMatch[1].trim();
+                    const effectsPart = blockHeaderMatch[2].trim();
+                    blockEffects = [];
+                    // Find all (effect ...) groups
+                    const effectRegex = /\(([^\)]+)\)/g;
+                    let match;
+                    while ((match = effectRegex.exec(effectsPart)) !== null) {
+                        const effectParts = match[1].trim().split(/\s+/);
+                        const effectType = effectParts[0];
+                        const params = effectParts.slice(1);
+                        blockEffects.push({ type: effectType, params });
+                    }
+                    if (blockEffects.length > 0) {
+                        this.effects.set(blockName, blockEffects);
+                    }
+                    currentBlock = blockName;
                     blockContent = [];
+                    inCustomSample = false; // Ensure we are not in a custom sample block
+                    continue;
                 }
-                continue;
+
+                // Block content or global command
+                if (currentBlock) {
+                    blockContent.push(line);
+                } else {
+                    this.globalCommands.push(line);
+                }
             }
 
-            if (inCustomSample) {
-                blockContent.push(line);
-                continue;
-            }
-
-            // Block start with effects: [block] (effect...) (effect2...)
-            const blockHeaderMatch = line.match(/^\[([^\]]+)\](.*)$/);
-            if (blockHeaderMatch && blockHeaderMatch[1].trim() !== 'end') {
-                const blockName = blockHeaderMatch[1].trim();
-                const effectsPart = blockHeaderMatch[2].trim();
-                blockEffects = [];
-                // Find all (effect ...) groups
-                const effectRegex = /\(([^\)]+)\)/g;
-                let match;
-                while ((match = effectRegex.exec(effectsPart)) !== null) {
-                    const effectParts = match[1].trim().split(/\s+/);
-                    const effectType = effectParts[0];
-                    const params = effectParts.slice(1);
-                    blockEffects.push({ type: effectType, params });
-                }
-                if (blockEffects.length > 0) {
-                    this.effects.set(blockName, blockEffects);
-                }
-                currentBlock = blockName;
-                blockContent = [];
-                inCustomSample = false; // Ensure we are not in a custom sample block
-                continue;
-            }
-
-            // Block content or global command
-            if (currentBlock) {
-                blockContent.push(line);
-            } else {
-                this.globalCommands.push(line);
-            }
+            return { success: true, message: 'Code parsed successfully' };
+        } catch (error) {
+            return { success: false, message: `Parse error: ${error.message}` };
         }
-
-        return { success: true, message: 'Code parsed successfully' };
-    } catch (error) {
-        return { success: false, message: `Parse error: ${error.message}` };
     }
-}
 
     validate() {
         const errors = [];
@@ -353,7 +353,7 @@ class CodeInterpreter {
             console.warn('Pattern command requires pairs of a sample name and a pattern string.');
             return 0;
         }
-    
+
         const patterns = [];
         // Loop through parts, taking a sample name and a pattern string as a pair
         for (let i = 1; i < parts.length; i += 2) {
@@ -361,22 +361,22 @@ class CodeInterpreter {
             const patternString = parts[i + 1].replace(/"/g, ''); // Remove quotes
             patterns.push({ name: sampleName, string: patternString });
         }
-    
+
         if (patterns.length === 0) {
             return 0;
         }
-    
+
         let maxLength = 0;
         const executionPromises = [];
         const stepDuration = this.beatDuration / 4; // 16th notes
-    
+
         // Process each pattern definition
         for (const pattern of patterns) {
             const steps = pattern.string.split('-');
             if (steps.length > maxLength) {
                 maxLength = steps.length;
             }
-    
+
             for (let i = 0; i < steps.length; i++) {
                 const step = steps[i].trim();
                 if (step === '1' || step === 'x' || step === 'X') {
@@ -388,10 +388,10 @@ class CodeInterpreter {
                 }
             }
         }
-    
+
         // Wait for all sample scheduling commands to be initiated
         await Promise.all(executionPromises);
-    
+
         // The total duration is determined by the longest pattern
         return maxLength * stepDuration;
     }
@@ -459,15 +459,15 @@ class CodeInterpreter {
     }
 
     async executeTTS(parts, startTime) {
-         // Check if we're in offline rendering mode
+        // Check if we're in offline rendering mode
         if (this.audioEngine && this.audioEngine.audioContext && this.audioEngine.audioContext.constructor.name === 'OfflineAudioContext') {
             // In offline mode, just return estimated duration without actual TTS
             console.warn('TTS not supported in offline rendering mode');
-            
+
             // Extract text and estimate duration (same logic as below)
             let text = '';
             let paramStartIndex = 1;
-            
+
             if (parts[1] && parts[1].startsWith('"')) {
                 const quotedText = [];
                 for (let i = 1; i < parts.length; i++) {
@@ -482,13 +482,13 @@ class CodeInterpreter {
                 text = parts[1] || 'Hello';
                 paramStartIndex = 2;
             }
-            
+
             const rate = this.parseValue(parts[paramStartIndex] || '1');
             const adjustedRate = rate * (this.bpm / 120);
             const wordsPerMinute = 150 * adjustedRate;
             const wordCount = text.split(' ').length;
             const estimatedDuration = (wordCount / wordsPerMinute) * 60;
-            
+
             return estimatedDuration;
         }
 
@@ -547,7 +547,7 @@ class CodeInterpreter {
             console.error(`SpeechSynthesis error for "${text}": ${event.error}`);
             cleanup();
         };
-        
+
         this.activeUtterances.push(utterance);
         // --- STABILITY FIX END ---
 
@@ -588,12 +588,12 @@ class CodeInterpreter {
     async executeCommandBlock(commands, startIndex, endIndex, startTime) {
         let currentTime = 0;
         let i = startIndex;
-        
+
         while (i < endIndex) {
             const command = commands[i];
             const parts = command.split(/\s+/);
             const cmd = parts[0];
-            
+
             // Handle control flow commands here, not in executeCommand
             if (cmd === 'if') {
                 const result = await this.executeIf(parts, startTime + currentTime, commands, i);
@@ -613,7 +613,7 @@ class CodeInterpreter {
                 i++;
             }
         }
-        
+
         return { duration: currentTime };
     }
 
@@ -686,15 +686,43 @@ class CodeInterpreter {
             outputNode = effectNodes[0];
         }
 
-        this.audioEngine.generateTone(
-            frequency,
-            durationInSeconds,
-            waveType,
-            startTime,
-            volume * (params.volume || 1),
-            pan + (params.pan || 0),
-            outputNode
-        );
+        // Create oscillator and gain node for smooth envelope
+        const ctx = this.audioEngine.audioContext;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        const panNode = ctx.createStereoPanner();
+
+        oscillator.type = waveType;
+        oscillator.frequency.value = frequency;
+        panNode.pan.value = Math.max(-1, Math.min(1, pan + (params.pan || 0)));
+
+        // Connect audio graph
+        oscillator.connect(gainNode);
+        gainNode.connect(panNode);
+        panNode.connect(outputNode);
+
+        // Calculate timing
+        const s = ctx.currentTime + startTime;
+        const e = s + durationInSeconds;
+
+        // Smooth envelope to prevent clicks
+        const fadeTime = Math.min(0.005, durationInSeconds * 0.1); // 5ms or 10% of duration, whichever is smaller
+        const targetVolume = volume * (params.volume || 1);
+
+        gainNode.gain.setValueAtTime(0, s);
+        gainNode.gain.linearRampToValueAtTime(targetVolume, s + fadeTime);
+        gainNode.gain.setValueAtTime(targetVolume, e - fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, e);
+
+        // Start and stop oscillator
+        oscillator.start(s);
+        oscillator.stop(e);
+
+        // Track active sources
+        this.audioEngine.activeSources.add(oscillator);
+        oscillator.addEventListener('ended', () => {
+            this.audioEngine.activeSources.delete(oscillator);
+        });
 
         return durationInSeconds;
     }
@@ -719,47 +747,30 @@ class CodeInterpreter {
         const gainNode = ctx.createGain();
         const panNode = ctx.createStereoPanner();
 
-        // --- Core Fixes Start Here ---
-
-        // 1. Define the absolute start and end times for all scheduling
+        // Define the absolute start and end times for all scheduling
         const s = ctx.currentTime + startTime;
         const e = s + durationInSeconds;
 
-        // 2. Schedule the oscillator frequency changes
+        // Schedule the oscillator frequency changes
         oscillator.type = waveType;
-        oscillator.frequency.setValueAtTime(freq1, s); // Start at freq1 AT the start time
-        oscillator.frequency.linearRampToValueAtTime(freq2, e); // Slide to freq2 by the end time
+        oscillator.frequency.setValueAtTime(freq1, s);
+        oscillator.frequency.linearRampToValueAtTime(freq2, e);
 
-        // 3. Schedule the pan value
-        // Instead of panNode.pan.value = pan, we schedule it.
+        // Schedule the pan value
         panNode.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), s);
 
-        // 4. Create a robust, scheduled gain envelope (ADSR-like)
-        // Remove the immediate gainNode.gain.value = 0 assignment.
-        // All gain changes are now scheduled.
-        const attackTime = 0.01;
-        const releaseTime = 0.1;
+        // Smooth envelope - shorter fade times for slides
+        const fadeTime = Math.min(0.003, durationInSeconds * 0.03); // 3ms or 3% of duration
 
-        // Ensure we don't have an envelope longer than the sound itself
-        if (durationInSeconds > attackTime + releaseTime) {
-            // Full ADSR envelope
-            gainNode.gain.setValueAtTime(0, s); // Start at 0 gain
-            gainNode.gain.linearRampToValueAtTime(volume, s + attackTime); // Attack
-            gainNode.gain.linearRampToValueAtTime(volume * 0.7, e - releaseTime); // Sustain/Decay
-            gainNode.gain.exponentialRampToValueAtTime(0.001, e); // Release
-        } else {
-            // Quick fade in/out for very short sounds
-            gainNode.gain.setValueAtTime(0, s);
-            gainNode.gain.linearRampToValueAtTime(volume, s + durationInSeconds * 0.5);
-            gainNode.gain.linearRampToValueAtTime(0.001, e);
-        }
-
-        // --- Core Fixes End Here ---
+        gainNode.gain.setValueAtTime(0, s);
+        gainNode.gain.linearRampToValueAtTime(volume, s + fadeTime);
+        gainNode.gain.setValueAtTime(volume, e - fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, e);
 
         // Connect the audio graph
         oscillator.connect(gainNode);
         gainNode.connect(panNode);
-        panNode.connect(this.audioEngine.eq.low); // Or your main output
+        panNode.connect(this.audioEngine.eq.low);
 
         // Schedule the oscillator to start and stop
         oscillator.start(s);

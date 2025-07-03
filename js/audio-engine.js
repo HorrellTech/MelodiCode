@@ -710,7 +710,6 @@ class AudioEngine {
 
         source.buffer = buffer;
         source.playbackRate.value = pitch * timescale;
-        gainNode.gain.value = volume;
         panNode.pan.value = Math.max(-1, Math.min(1, pan));
 
         source.connect(gainNode);
@@ -720,6 +719,21 @@ class AudioEngine {
         source.gainNode = gainNode;
 
         const startTime = this.audioContext.currentTime + when;
+        const sampleDuration = buffer.duration / (pitch * timescale);
+
+        // Smooth envelope for samples - very short fade to prevent clicks
+        const fadeTime = Math.min(0.002, sampleDuration * 0.02); // 2ms or 2% of sample duration
+
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(volume, startTime + fadeTime);
+
+        // Fade out near the end
+        const fadeOutStart = startTime + sampleDuration - fadeTime;
+        if (fadeOutStart > startTime + fadeTime) {
+            gainNode.gain.setValueAtTime(volume, fadeOutStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + sampleDuration);
+        }
+
         source.start(startTime);
 
         // Track active sources
@@ -727,13 +741,6 @@ class AudioEngine {
         source.addEventListener('ended', () => {
             this.activeSources.delete(source);
         });
-
-        // Add fade out to prevent clicks
-        gainNode.gain.setValueAtTime(volume, startTime);
-        // Instead of abrupt ramp, use setTargetAtTime for a smooth fade
-        const fadeOutStart = startTime + (buffer.duration / timescale) - 0.03;
-        gainNode.gain.setTargetAtTime(0.0001, fadeOutStart, 0.015);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + (buffer.duration / timescale) - 0.01);
 
         return source;
     }
@@ -760,7 +767,6 @@ class AudioEngine {
 
         oscillator.type = waveType;
         oscillator.frequency.value = frequency;
-        gainNode.gain.value = 0;
         panNode.pan.value = Math.max(-1, Math.min(1, pan));
 
         oscillator.connect(gainNode);
@@ -770,12 +776,13 @@ class AudioEngine {
         const startTime = this.audioContext.currentTime + when;
         const endTime = startTime + duration;
 
-        // ADSR envelope
+        // Smooth envelope to prevent clicks - shorter fade times for less noticeable effect
+        const fadeTime = Math.min(0.003, duration * 0.05); // 3ms or 5% of duration, whichever is smaller
+
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
-        gainNode.gain.linearRampToValueAtTime(volume * 0.8, startTime + 0.1);
-        gainNode.gain.setValueAtTime(volume * 0.6, endTime - 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, endTime);
+        gainNode.gain.linearRampToValueAtTime(volume, startTime + fadeTime);
+        gainNode.gain.setValueAtTime(volume, endTime - fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, endTime);
 
         // Track active sources
         this.activeSources.add(oscillator);
@@ -1335,11 +1342,11 @@ class AudioEngine {
             case 'tts':
                 // For offline rendering, we can't use actual TTS, so we estimate duration and add silence
                 console.warn('TTS not supported in offline rendering, adding estimated silence');
-                
+
                 // Extract text and estimate duration (same logic as in CodeInterpreter.executeTTS)
                 let text = '';
                 let paramStartIndex = 1;
-                
+
                 if (parts[1] && parts[1].startsWith('"')) {
                     const quotedText = [];
                     for (let i = 1; i < parts.length; i++) {
@@ -1354,13 +1361,13 @@ class AudioEngine {
                     text = parts[1] || 'Hello';
                     paramStartIndex = 2;
                 }
-                
+
                 const rate = parseFloat(parts[paramStartIndex] || '1');
                 const adjustedRate = rate * (offlineEngine.bpm / 120);
                 const wordsPerMinute = 150 * adjustedRate;
                 const wordCount = text.split(' ').length;
                 const estimatedDuration = (wordCount / wordsPerMinute) * 60;
-                
+
                 return estimatedDuration;
 
             default:
@@ -1438,34 +1445,34 @@ class AudioEngine {
     }
 
     generateOfflineTone(frequency, duration, offlineContext, outputNode, when, waveType = 'sine', volume = 1) {
-    const oscillator = offlineContext.createOscillator();
-    const gainNode = offlineContext.createGain();
+        const oscillator = offlineContext.createOscillator();
+        const gainNode = offlineContext.createGain();
 
-    oscillator.type = waveType;
-    oscillator.frequency.value = frequency;
-    gainNode.gain.value = 0;
+        oscillator.type = waveType;
+        oscillator.frequency.value = frequency;
+        gainNode.gain.value = 0;
 
-    oscillator.connect(gainNode);
-    gainNode.connect(outputNode);
+        oscillator.connect(gainNode);
+        gainNode.connect(outputNode);
 
-    // Ensure startTime is never negative
-    const startTime = Math.max(0, when);
-    const endTime = startTime + duration;
+        // Ensure startTime is never negative
+        const startTime = Math.max(0, when);
+        const endTime = startTime + duration;
 
-    // ADSR envelope with safe time values
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.5, Math.max(startTime + 0.01, startTime + duration * 0.1));
-    gainNode.gain.linearRampToValueAtTime(volume * 0.4, Math.max(startTime + 0.1, endTime - duration * 0.1));
-    gainNode.gain.setValueAtTime(volume * 0.3, Math.max(endTime - 0.1, endTime - duration * 0.1));
-    gainNode.gain.exponentialRampToValueAtTime(0.001, endTime);
+        // ADSR envelope with safe time values
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(volume * 0.5, Math.max(startTime + 0.01, startTime + duration * 0.1));
+        gainNode.gain.linearRampToValueAtTime(volume * 0.4, Math.max(startTime + 0.1, endTime - duration * 0.1));
+        gainNode.gain.setValueAtTime(volume * 0.3, Math.max(endTime - 0.1, endTime - duration * 0.1));
+        gainNode.gain.exponentialRampToValueAtTime(0.001, endTime);
 
-    // Schedule the tone to start and stop at the specified times
-    oscillator.start(startTime);
-    oscillator.stop(endTime);
+        // Schedule the tone to start and stop at the specified times
+        oscillator.start(startTime);
+        oscillator.stop(endTime);
 
-    console.log(`Scheduled tone ${frequency}Hz for ${duration}s at time ${startTime}`);
-    return oscillator;
-}
+        console.log(`Scheduled tone ${frequency}Hz for ${duration}s at time ${startTime}`);
+        return oscillator;
+    }
 
     audioBufferToWAV(buffer) {
         const length = buffer.length;
