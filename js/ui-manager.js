@@ -22,6 +22,7 @@ class UIManager {
         this.initializeFileTree();
         this.setupModals();
         this.loadSettings();
+        this.populateExamplesDropdown();
     }
 
     setupEventListeners() {
@@ -35,37 +36,57 @@ class UIManager {
         document.getElementById('openProject').addEventListener('click', () => this.openProject());
         document.getElementById('saveProject').addEventListener('click', () => this.saveProject());
         document.getElementById('exportWav').addEventListener('click', () => this.exportWAV());
-        //document.getElementById('exportStems').addEventListener('click', () => this.exportStems());
 
         // Code editor controls
         document.getElementById('formatCode').addEventListener('click', () => this.formatCode());
         document.getElementById('validateCode').addEventListener('click', () => this.validateCode());
+        
+        // Examples dropdown - handle gracefully if not found
+        const examplesDropdown = document.getElementById('examplesDropdown');
+        if (examplesDropdown) {
+            examplesDropdown.addEventListener('change', (e) => this.loadExample(e.target.value));
+        }
 
         // Master controls
-        document.getElementById('masterVolume').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('masterVolumeValue').textContent = value + '%';
-            window.audioEngine.setMasterVolume(value);
-        });
+        const masterVolume = document.getElementById('masterVolume');
+        if (masterVolume) {
+            masterVolume.addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('masterVolumeValue').textContent = value + '%';
+                window.audioEngine.setMasterVolume(value);
+            });
+        }
 
         // Effects controls
         this.setupEffectsControls();
 
         // File import
-        document.getElementById('importAudio').addEventListener('click', () => {
-            document.getElementById('audioFileInput').click();
-        });
+        const importAudio = document.getElementById('importAudio');
+        if (importAudio) {
+            importAudio.addEventListener('click', () => {
+                document.getElementById('audioFileInput').click();
+            });
+        }
 
-        document.getElementById('audioFileInput').addEventListener('change', (e) => {
-            this.handleFileImport(e.target.files);
-        });
+        const audioFileInput = document.getElementById('audioFileInput');
+        if (audioFileInput) {
+            audioFileInput.addEventListener('change', (e) => {
+                this.handleFileImport(e.target.files);
+            });
+        }
 
         // Settings and modals
-        document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
-        document.getElementById('geminiBtn').addEventListener('click', () => this.showGemini());
-        document.getElementById('closeSettings').addEventListener('click', () => this.hideSettings());
-        document.getElementById('closeGemini').addEventListener('click', () => this.hideGemini());
-        document.getElementById('saveSettings').addEventListener('click', () => this.saveSettings());
+        const settingsBtn = document.getElementById('settingsBtn');
+        const geminiBtn = document.getElementById('geminiBtn');
+        const closeSettings = document.getElementById('closeSettings');
+        const closeGemini = document.getElementById('closeGemini');
+        const saveSettings = document.getElementById('saveSettings');
+
+        if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
+        if (geminiBtn) geminiBtn.addEventListener('click', () => this.showGemini());
+        if (closeSettings) closeSettings.addEventListener('click', () => this.hideSettings());
+        if (closeGemini) closeGemini.addEventListener('click', () => this.hideGemini());
+        if (saveSettings) saveSettings.addEventListener('click', () => this.saveSettings());
 
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -73,18 +94,20 @@ class UIManager {
         });
 
         // Theme controls
-        document.getElementById('themeSelect').addEventListener('change', (e) => {
-            this.setTheme(e.target.value);
-        });
+        const themeSelect = document.getElementById('themeSelect');
+        const accentColor = document.getElementById('accentColor');
+        
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                this.setTheme(e.target.value);
+            });
+        }
 
-        document.getElementById('accentColor').addEventListener('change', (e) => {
-            this.setAccentColor(e.target.value);
-        });
-
-        // Code editor
-        /*document.getElementById('codeInput').addEventListener('input', () => {
-            this.updateBlockInspector();
-        });*/
+        if (accentColor) {
+            accentColor.addEventListener('change', (e) => {
+                this.setAccentColor(e.target.value);
+            });
+        }
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
@@ -95,25 +118,34 @@ class UIManager {
 
     setupEffectsControls() {
         // Compressor
-        document.getElementById('compressorThreshold').addEventListener('input', (e) => {
-            const value = e.target.value;
-            e.target.nextElementSibling.textContent = value + 'dB';
-            window.audioEngine.setCompressor(value);
-        });
+        const compressorThreshold = document.getElementById('compressorThreshold');
+        if (compressorThreshold) {
+            compressorThreshold.addEventListener('input', (e) => {
+                const value = e.target.value;
+                e.target.nextElementSibling.textContent = value + 'dB';
+                window.audioEngine.setCompressor(value);
+            });
+        }
 
         // Limiter
-        document.getElementById('limiterThreshold').addEventListener('input', (e) => {
-            const value = e.target.value;
-            e.target.nextElementSibling.textContent = value + 'dB';
-            window.audioEngine.setLimiter(value);
-        });
+        const limiterThreshold = document.getElementById('limiterThreshold');
+        if (limiterThreshold) {
+            limiterThreshold.addEventListener('input', (e) => {
+                const value = e.target.value;
+                e.target.nextElementSibling.textContent = value + 'dB';
+                window.audioEngine.setLimiter(value);
+            });
+        }
 
         // Reverb
-        document.getElementById('reverbWet').addEventListener('input', (e) => {
-            const value = e.target.value;
-            e.target.nextElementSibling.textContent = value + '%';
-            window.audioEngine.setReverb(value);
-        });
+        const reverbWet = document.getElementById('reverbWet');
+        if (reverbWet) {
+            reverbWet.addEventListener('input', (e) => {
+                const value = e.target.value;
+                e.target.nextElementSibling.textContent = value + '%';
+                window.audioEngine.setReverb(value);
+            });
+        }
 
         document.querySelectorAll('input[type="range"]').forEach(slider => {
             const updateSliderProgress = () => {
@@ -127,12 +159,15 @@ class UIManager {
 
         // EQ
         ['eqHigh', 'eqMid', 'eqLow'].forEach(id => {
-            document.getElementById(id).addEventListener('input', (e) => {
-                const value = e.target.value;
-                e.target.nextElementSibling.textContent = value + 'dB';
-                const band = id.replace('eq', '').toLowerCase();
-                window.audioEngine.setEQ(band, value);
-            });
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    e.target.nextElementSibling.textContent = value + 'dB';
+                    const band = id.replace('eq', '').toLowerCase();
+                    window.audioEngine.setEQ(band, value);
+                });
+            }
         });
     }
 
@@ -172,6 +207,60 @@ class UIManager {
         this.waveformCanvas = document.getElementById('waveformCanvas');
         this.waveformContext = this.waveformCanvas.getContext('2d');
         this.startWaveformAnimation();
+    }
+
+    populateExamplesDropdown() {
+        const dropdown = document.getElementById('examplesDropdown');
+        if (!dropdown || !window.melodicodeExamples) return;
+
+        // Clear existing options except the first one
+        dropdown.innerHTML = '<option value="">Load Example...</option>';
+
+        // Add examples
+        for (const [name, code] of Object.entries(window.melodicodeExamples)) {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            dropdown.appendChild(option);
+        }
+    }
+
+    loadExample(exampleName) {
+        if (!exampleName || !window.melodicodeExamples) return;
+
+        const exampleCode = window.melodicodeExamples[exampleName];
+        if (!exampleCode) return;
+
+        // Check if there's existing code
+        const currentCode = window.editor ? window.editor.getValue() : '';
+        
+        if (currentCode.trim()) {
+            const shouldReplace = confirm(
+                `Loading "${exampleName}" will replace your current code. Do you want to continue?\n\n` +
+                `Tip: Save your current work first if you want to keep it.`
+            );
+            
+            if (!shouldReplace) {
+                // Reset dropdown to default
+                const dropdown = document.getElementById('examplesDropdown');
+                if (dropdown) dropdown.value = '';
+                return;
+            }
+        }
+
+        // Load the example
+        if (window.editor) {
+            window.editor.setValue(exampleCode);
+            this.updateBlockInspector();
+            this.updateStatus(`Loaded example: ${exampleName}`);
+            
+            // Reset dropdown to default
+            const dropdown = document.getElementById('examplesDropdown');
+            if (dropdown) dropdown.value = '';
+            
+            // Show success message
+            this.showSuccess(`Example "${exampleName}" loaded successfully!`);
+        }
     }
 
     populateBuiltInSamplesPanel() {

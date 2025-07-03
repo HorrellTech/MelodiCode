@@ -1173,3 +1173,32 @@ input[type="range"]::-moz-range-progress {
 .cm-operator, .cm-bracket {
     color: var(--accent-color) !important;
 }
+
+#examplesDropdown {
+    margin-right: 0.5rem;
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#examplesDropdown:hover {
+    background-color: var(--accent-color);
+    color: var(--primary-bg);
+}
+
+#examplesDropdown:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+}
+
+#examplesDropdown option {
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
+    padding: 0.25rem;
+}

@@ -147,6 +147,12 @@ class MelodiCodeApp {
         }
 
         this.components.uiManager = window.uiManager;
+        
+        // Populate examples dropdown after UI is ready
+        if (window.melodicodeExamples) {
+            this.components.uiManager.populateExamplesDropdown();
+        }
+        
         console.log('UI manager initialized');
     }
 
