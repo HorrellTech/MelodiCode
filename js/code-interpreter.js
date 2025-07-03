@@ -796,54 +796,122 @@ class CodeInterpreter {
         const block2 = parts[2];
         const amount = parseFloat(parts[3]);
 
-        // Create a gain node for block1
+        if (!this.blocks.has(block1) || !this.blocks.has(block2)) {
+            console.warn(`One or both blocks not found: ${block1}, ${block2}`);
+            return 0;
+        }
+
         const ctx = this.audioEngine.audioContext;
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = 1;
+        
+        // Create a gain node to control block1's volume
+        const sidechainGain = ctx.createGain();
+        sidechainGain.gain.value = 1; // Start at full volume
 
-        // Patch: temporarily override playSample/generateTone for block1 to insert gainNode
-        const origPlaySample = this.audioEngine.playSample.bind(this.audioEngine);
-        const origGenerateTone = this.audioEngine.generateTone.bind(this.audioEngine);
+        // Create a compressor for more realistic sidechain effect
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.value = -24;
+        compressor.knee.value = 30;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
 
-        this.audioEngine.playSample = (...args) => {
-            const src = origPlaySample(...args);
-            if (src && src.gainNode) {
-                src.gainNode.disconnect();
-                src.gainNode.connect(gainNode);
+        // Connect sidechain gain to compressor to output
+        sidechainGain.connect(compressor);
+        compressor.connect(this.audioEngine.eq.low);
+
+        // Override playSample and executeTone for block1 to route through sidechain gain
+        const originalPlaySample = this.audioEngine.playSample.bind(this.audioEngine);
+        const originalExecuteTone = this.executeTone.bind(this);
+        
+        let isBlock1Playing = false;
+
+        // Create new methods that route block1 audio through sidechain gain
+        const sidechainPlaySample = (sampleName, pitch, timescale, when, volume, pan, outputNode) => {
+            if (isBlock1Playing) {
+                // Route block1 samples through sidechain gain
+                return originalPlaySample(sampleName, pitch, timescale, when, volume, pan, sidechainGain);
+            } else {
+                // Block2 samples go directly to output (bypass sidechain)
+                return originalPlaySample(sampleName, pitch, timescale, when, volume, pan, outputNode);
             }
-            return src;
         };
-        this.audioEngine.generateTone = (...args) => {
-            const osc = origGenerateTone(...args);
-            if (osc && osc.context) {
-                // Find the gain node in the chain (not trivial, so skip for now)
+
+        const sidechainExecuteTone = (parts, startTime, effectNodes) => {
+            if (isBlock1Playing) {
+                // Route block1 tones through sidechain gain
+                return originalExecuteTone.call(this, parts, startTime, [sidechainGain]);
+            } else {
+                // Block2 tones go directly to output
+                return originalExecuteTone.call(this, parts, startTime, effectNodes);
             }
-            return osc;
         };
 
-        // Schedule block1 (all its sounds go through gainNode)
-        const block1Promise = this.executeBlock(block1, startTime);
+        // Create trigger detection for block2
+        const createTriggerDetection = () => {
+            const block2Commands = this.blocks.get(block2);
+            const triggerTimes = [];
+            let currentTime = 0;
 
-        // Connect gainNode to output
-        gainNode.connect(this.audioEngine.eq.low);
+            // Analyze block2 to find when samples/tones trigger
+            for (const command of block2Commands) {
+                const parts = command.split(/\s+/);
+                const cmd = parts[0];
 
-        // Schedule block2 and collect its events
-        // For simplicity, just run block2 and duck block1's gain for the duration
-        let block2Duration = this.estimateDuration(block2);
-        if (!isFinite(block2Duration) || block2Duration <= 0) block2Duration = 0.1; // fallback to a small value
+                if (cmd === 'sample' || cmd === 'tone') {
+                    triggerTimes.push(currentTime);
+                    if (cmd === 'tone') {
+                        const duration = this.parseValue(parts[2] || '1') * this.beatDuration;
+                        currentTime += duration;
+                    }
+                } else if (cmd === 'wait') {
+                    currentTime += this.parseValue(parts[1]) * this.beatDuration;
+                } else if (cmd === 'slide') {
+                    const duration = this.parseValue(parts[3] || '1') * this.beatDuration;
+                    currentTime += duration;
+                }
+            }
 
-        gainNode.gain.setValueAtTime(1, ctx.currentTime + startTime);
-        gainNode.gain.linearRampToValueAtTime(1 - amount, ctx.currentTime + startTime + 0.01);
-        gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + startTime + block2Duration);
+            return triggerTimes;
+        };
 
-        // Restore original methods
-        this.audioEngine.playSample = origPlaySample;
-        this.audioEngine.generateTone = origGenerateTone;
+        const triggerTimes = createTriggerDetection();
+        const duckingDuration = 0.1; // Duration of ducking effect in seconds
 
-        // Wait for both blocks to finish
-        await Promise.all([block1Promise, this.executeBlock(block2, startTime)]);
+        // Schedule ducking automation for each trigger
+        triggerTimes.forEach(triggerTime => {
+            const absoluteTriggerTime = ctx.currentTime + startTime + triggerTime;
+            
+            // Duck the volume when block2 triggers
+            sidechainGain.gain.setValueAtTime(1, absoluteTriggerTime);
+            sidechainGain.gain.linearRampToValueAtTime(1 - amount, absoluteTriggerTime + 0.01);
+            sidechainGain.gain.linearRampToValueAtTime(1, absoluteTriggerTime + duckingDuration);
+        });
 
-        return Math.max(this.estimateDuration(block1), block2Duration);
+        // Temporarily override methods
+        this.audioEngine.playSample = sidechainPlaySample;
+        this.executeTone = sidechainExecuteTone;
+
+        try {
+            // Execute both blocks
+            isBlock1Playing = true;
+            const block1Promise = this.executeBlock(block1, startTime);
+            
+            isBlock1Playing = false;
+            const block2Promise = this.executeBlock(block2, startTime);
+
+            await Promise.all([block1Promise, block2Promise]);
+
+            // Calculate total duration
+            const block1Duration = this.estimateDuration(block1);
+            const block2Duration = this.estimateDuration(block2);
+            
+            return Math.max(block1Duration, block2Duration);
+
+        } finally {
+            // Restore original methods
+            this.audioEngine.playSample = originalPlaySample;
+            this.executeTone = originalExecuteTone;
+        }
     }
 
     executeWait(parts, startTime) {

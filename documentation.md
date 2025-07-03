@@ -451,6 +451,8 @@ sample bass_drum
 
 ---
 
+
+
 ## 🏁 Full Example: Simple Tune
 
 ```melodicode

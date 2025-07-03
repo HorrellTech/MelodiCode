@@ -117,6 +117,7 @@ They use angle brackets `<sample_name>` and `<end>` instead of square brackets.
 **How it works:**  
 - All commands inside a sample block are played at the same time, creating layered or complex sounds.
 - You can trigger your custom sample anywhere you would use a built-in sample, using the `sample` command.
+- Shorter blocks will automatically loop while the longest block playing on a play or loop command is playing(if multiple blocks are played at one time)
 
 **Syntax:**
 ```melodicode

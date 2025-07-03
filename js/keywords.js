@@ -64,7 +64,7 @@ window.melodicodeKeywords = {
             { name: "waveType", desc: "sine, square, sawtooth, triangle (default: sine)" }
         ]
     },
-    /*sidechain: {
+    sidechain: {
         description: "Apply sidechain compression to a block.",
         usage: "sidechain <block1> <block2> <amount> [volume] [pan]",
         params: [
@@ -74,7 +74,7 @@ window.melodicodeKeywords = {
             { name: "volume", desc: "Volume 0-1 (default: 0.8)" },
             { name: "pan", desc: "Stereo position -1 to 1 (default: 0)" }
         ]
-    },*/
+    },
     pattern: {
         description: "Create a rhythmic pattern using 1/0 or x/- notation.",
         usage: "pattern < sampleName > < pattern >",
