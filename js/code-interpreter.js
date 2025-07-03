@@ -526,6 +526,21 @@ class CodeInterpreter {
         // Adjust rate based on BPM if needed
         const adjustedRate = rate * (this.bpm / 120); // Scale with BPM
 
+        // Create a simple unique identifier based on execution order and timing
+        const executionId = Date.now() + Math.random();
+        const ttsId = `tts_${executionId}`;
+
+        // Initialize if needed
+        if (!this.activeTTSCalls) {
+            this.activeTTSCalls = new Set();
+        }
+
+        if (!this.pendingTTSTimeouts) {
+            this.pendingTTSTimeouts = new Map();
+        }
+
+        console.log(`Starting TTS: "${text}" with ID: ${ttsId} at time: ${startTime}`);
+
         // Create speech synthesis utterance
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = Math.max(0.1, Math.min(10, adjustedRate));
@@ -537,40 +552,54 @@ class CodeInterpreter {
             utterance.voice = voices[voiceIndex];
         }
 
-        // --- STABILITY FIX START ---
-        // The SpeechSynthesis API can be unstable. Holding a reference to the
-        // utterance object and managing its lifecycle helps prevent issues
-        // like repeated, cut-off, or dropped lines.
+        // Cleanup function
         const cleanup = () => {
             const index = this.activeUtterances.indexOf(utterance);
             if (index > -1) {
                 this.activeUtterances.splice(index, 1);
             }
+            this.activeTTSCalls.delete(ttsId);
+            this.pendingTTSTimeouts.delete(ttsId);
+            console.log(`Cleaned up TTS: "${text}" (${ttsId})`);
         };
 
-        utterance.onend = cleanup;
-        utterance.onerror = (event) => {
-            console.error(`SpeechSynthesis error for "${text}": ${event.error}`);
+        utterance.onend = () => {
+            console.log(`TTS completed: "${text}" (${ttsId})`);
             cleanup();
         };
 
-        this.activeUtterances.push(utterance);
-        // --- STABILITY FIX END ---
+        utterance.onerror = (event) => {
+            console.error(`SpeechSynthesis error for "${text}" (${ttsId}): ${event.error}`);
+            cleanup();
+        };
 
-        // --- TIMING FIX START ---
-        // Schedule the speech relative to the audio context's clock for precision.
+        // Add to tracking
+        this.activeTTSCalls.add(ttsId);
+        this.activeUtterances.push(utterance);
+
+        // Calculate timing
         const delayInSeconds = startTime - this.audioEngine.audioContext.currentTime;
         const delayInMilliseconds = Math.max(0, delayInSeconds * 1000);
 
-        setTimeout(() => {
-            if (this.isRunning) { // Only speak if execution hasn't been stopped
-                speechSynthesis.speak(utterance);
+        // Schedule the speech with better error handling
+        const timeoutId = setTimeout(() => {
+            // Only execute if still active and running
+            if (this.isRunning && this.activeTTSCalls.has(ttsId)) {
+                console.log(`Speaking: "${text}" (${ttsId}) at context time: ${this.audioEngine.audioContext.currentTime}`);
+                try {
+                    speechSynthesis.speak(utterance);
+                } catch (error) {
+                    console.error(`Failed to speak TTS "${text}":`, error);
+                    cleanup();
+                }
             } else {
-                // If execution was stopped before this timeout fired, ensure cleanup.
+                console.log(`Skipping TTS "${text}" (${ttsId}) - execution stopped or already processed`);
                 cleanup();
             }
         }, delayInMilliseconds);
-        // --- TIMING FIX END ---
+
+        // Store timeout reference
+        this.pendingTTSTimeouts.set(ttsId, timeoutId);
 
         // Estimate duration (rough calculation)
         const wordsPerMinute = 150 * utterance.rate;
@@ -802,7 +831,7 @@ class CodeInterpreter {
         }
 
         const ctx = this.audioEngine.audioContext;
-        
+
         // Create a gain node to control block1's volume
         const sidechainGain = ctx.createGain();
         sidechainGain.gain.value = 1; // Start at full volume
@@ -822,7 +851,7 @@ class CodeInterpreter {
         // Calculate durations for both blocks
         const block1Duration = this.estimateDuration(block1);
         const block2Duration = this.estimateDuration(block2);
-        
+
         // Use the longer duration, but ensure we have at least some playback time
         const maxDuration = Math.max(block1Duration, block2Duration, 4); // Minimum 4 seconds
 
@@ -831,7 +860,7 @@ class CodeInterpreter {
         // Override methods to route audio properly
         const originalPlaySample = this.audioEngine.playSample.bind(this.audioEngine);
         const originalExecuteTone = this.executeTone.bind(this);
-        
+
         let currentExecutingBlock = null;
 
         // Create routing methods
@@ -859,15 +888,15 @@ class CodeInterpreter {
         const getTriggerTimes = (blockName, blockDuration, totalDuration) => {
             const commands = this.blocks.get(blockName);
             const triggers = [];
-            
+
             const loopCount = blockDuration > 0 ? Math.ceil(totalDuration / blockDuration) : 1;
-            
+
             for (let loop = 0; loop < loopCount; loop++) {
                 const loopStart = loop * blockDuration;
                 if (loopStart >= totalDuration) break;
-                
+
                 let time = 0;
-                
+
                 for (const command of commands) {
                     const cmdParts = command.split(/\s+/);
                     const cmd = cmdParts[0];
@@ -891,7 +920,7 @@ class CodeInterpreter {
                                 const patternStr = cmdParts[i + 1].replace(/"/g, '');
                                 const steps = patternStr.split('-');
                                 const stepDuration = this.beatDuration / 4;
-                                
+
                                 for (let j = 0; j < steps.length; j++) {
                                     if (steps[j].trim() === '1' || steps[j].trim() === 'x' || steps[j].trim() === 'X') {
                                         triggers.push(loopStart + time + (j * stepDuration));
@@ -903,7 +932,7 @@ class CodeInterpreter {
                     }
                 }
             }
-            
+
             return triggers;
         };
 
@@ -918,9 +947,9 @@ class CodeInterpreter {
         triggerTimes.forEach((triggerTime, index) => {
             if (triggerTime < maxDuration) {
                 const absoluteTime = ctx.currentTime + startTime + triggerTime;
-                
+
                 console.log(`Scheduling duck ${index + 1} at ${triggerTime}s (absolute: ${absoluteTime}s)`);
-                
+
                 // Duck the gain
                 sidechainGain.gain.cancelScheduledValues(absoluteTime);
                 sidechainGain.gain.setValueAtTime(1, absoluteTime);
@@ -950,7 +979,7 @@ class CodeInterpreter {
             } else {
                 promises.push(this.executeBlock(block1, startTime));
             }
-            
+
             // Execute block2 (triggers sidechain)
             currentExecutingBlock = block2;
             if (block2Duration > 0 && block2Duration < maxDuration) {
@@ -1068,7 +1097,7 @@ class CodeInterpreter {
 
         // Start all blocks immediately without waiting for their completion
         // This runs asynchronously and doesn't block the timeline
-        Promise.all(blockNames.map(blockName => 
+        Promise.all(blockNames.map(blockName =>
             this.executeBlock(blockName, startTime, params)
         )).catch(error => {
             console.error('Async play error:', error);
@@ -1503,6 +1532,30 @@ class CodeInterpreter {
         this.currentPosition = 0;
         this.activeUtterances.length = 0; // Clear any referenced utterances
 
+        // Clear all active TTS calls
+        if (this.activeTTSCalls) {
+            this.activeTTSCalls.clear();
+        }
+
+        // Clear all scheduled TTS (legacy)
+        if (this.scheduledTTS) {
+            this.scheduledTTS.clear();
+        }
+
+        // Clear all pending TTS timeouts
+        if (this.pendingTTSTimeouts) {
+            for (const [ttsId, timeoutId] of this.pendingTTSTimeouts) {
+                clearTimeout(timeoutId);
+            }
+            this.pendingTTSTimeouts.clear();
+        }
+
+        // Clear legacy pendingTTS timeout
+        if (this.pendingTTS) {
+            clearTimeout(this.pendingTTS);
+            this.pendingTTS = null;
+        }
+
         // Stop audio engine
         if (this.audioEngine) {
             this.audioEngine.stop();
@@ -1512,6 +1565,8 @@ class CodeInterpreter {
         if (typeof speechSynthesis !== 'undefined') {
             speechSynthesis.cancel();
         }
+
+        console.log('Code execution stopped and TTS cleared');
     }
 
     getBlockInfo(blockName) {
