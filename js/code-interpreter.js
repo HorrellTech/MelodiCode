@@ -24,112 +24,112 @@ class CodeInterpreter {
     }
 
     parse(code) {
-        try {
-            this.blocks.clear();
-            this.globalCommands = [];
-            this.variables.clear();
-            this.customSamples.clear();
-            this.effects.clear();
+    try {
+        this.blocks.clear();
+        this.globalCommands = [];
+        this.variables.clear();
+        this.customSamples.clear();
+        this.effects.clear();
 
-            // Remove comments (everything after // on each line)
-            const lines = code.split('\n')
-                .map(line => {
-                    const idx = line.indexOf('//');
-                    if (idx !== -1) {
-                        return line.slice(0, idx).trim();
-                    }
-                    return line.trim();
-                })
-                .filter(line => line); // Remove empty lines
-
-
-            let currentBlock = null;
-            let blockContent = [];
-            let inCustomSample = false;
-            let customSampleName = '';
-            let blockEffects = [];
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-
-                // Custom sample block start: <blockName>
-                if (line.startsWith('<') && line.endsWith('>') && !line.includes('end')) {
-                    inCustomSample = true;
-                    customSampleName = line.slice(1, -1);
-                    blockContent = [];
-                    continue;
+        // Remove comments (everything after // on each line)
+        const lines = code.split('\n')
+            .map(line => {
+                const idx = line.indexOf('//');
+                if (idx !== -1) {
+                    return line.slice(0, idx).trim();
                 }
+                return line.trim();
+            })
+            .filter(line => line); // Remove empty lines
 
-                // Custom sample block end: <end>
-                if (line === '<end>') {
-                    if (inCustomSample && customSampleName) {
-                        this.customSamples.set(customSampleName, blockContent.slice());
-                        inCustomSample = false;
-                        customSampleName = '';
-                        blockContent = [];
-                    }
-                    continue;
-                }
+        // Split each line by semicolons and flatten into a single array of commands
+        const allCommands = [];
+        for (const line of lines) {
+            if (line.startsWith('[') || line.startsWith('<') || line === '[end]' || line === '<end>') {
+                // Don't split block headers/endings by semicolon
+                allCommands.push(line);
+            } else {
+                // Split by semicolon and add each non-empty command
+                const commands = line.split(';').map(cmd => cmd.trim()).filter(cmd => cmd);
+                allCommands.push(...commands);
+            }
+        }
 
-                if (inCustomSample) {
-                    blockContent.push(line);
-                    continue;
-                }
+        let currentBlock = null;
+        let blockContent = [];
+        let inCustomSample = false;
+        let customSampleName = '';
+        let blockEffects = [];
 
-                // Block start (uncomment if effects dont work)
-                /*if (line.startsWith('[') && line.endsWith(']') && !line.includes('end')) {
-                    const blockName = line.slice(1, -1);
-                    currentBlock = blockName;
-                    blockContent = [];
-                    continue;
-                }*/
+        for (let i = 0; i < allCommands.length; i++) {
+            const line = allCommands[i].trim();
 
-                // Block start with effects: [block] (effect...) (effect2...)
-                const blockHeaderMatch = line.match(/^\[([^\]]+)\](.*)$/);
-                if (blockHeaderMatch && !line.includes('end')) {
-                    const blockName = blockHeaderMatch[1].trim();
-                    const effectsPart = blockHeaderMatch[2].trim();
-                    blockEffects = [];
-                    // Find all (effect ...) groups
-                    const effectRegex = /\(([^\)]+)\)/g;
-                    let match;
-                    while ((match = effectRegex.exec(effectsPart)) !== null) {
-                        const effectParts = match[1].trim().split(/\s+/);
-                        const effectType = effectParts[0];
-                        const params = effectParts.slice(1);
-                        blockEffects.push({ type: effectType, params });
-                    }
-                    if (blockEffects.length > 0) {
-                        this.effects.set(blockName, blockEffects);
-                    }
-                    currentBlock = blockName;
-                    blockContent = [];
-                    continue;
-                }
-
-                // Block end
-                if (line === '[end]') {
-                    if (currentBlock) {
-                        this.blocks.set(currentBlock, blockContent);
-                        currentBlock = null;
-                        blockContent = [];
-                    }
-                    continue;
-                }
-
-                // Block content or global command
-                if (currentBlock) {
-                    blockContent.push(line);
-                } else {
-                    this.globalCommands.push(line);
-                }
+            // Custom sample block start: <blockName>
+            if (line.startsWith('<') && line.endsWith('>') && line !== '<end>') {
+                inCustomSample = true;
+                customSampleName = line.slice(1, -1);
+                blockContent = [];
+                currentBlock = null; // Ensure we are not in a regular block
+                continue;
             }
 
-            return { success: true, message: 'Code parsed successfully' };
-        } catch (error) {
-            return { success: false, message: `Parse error: ${error.message}` };
+            // Universal block end: handles both [end] and <end> for any block type
+            if (line === '[end]' || line === '<end>') {
+                if (inCustomSample && customSampleName) {
+                    this.customSamples.set(customSampleName, blockContent.slice());
+                    inCustomSample = false;
+                    customSampleName = '';
+                    blockContent = [];
+                } else if (currentBlock) {
+                    this.blocks.set(currentBlock, blockContent);
+                    currentBlock = null;
+                    blockContent = [];
+                }
+                continue;
+            }
+
+            if (inCustomSample) {
+                blockContent.push(line);
+                continue;
+            }
+
+            // Block start with effects: [block] (effect...) (effect2...)
+            const blockHeaderMatch = line.match(/^\[([^\]]+)\](.*)$/);
+            if (blockHeaderMatch && blockHeaderMatch[1].trim() !== 'end') {
+                const blockName = blockHeaderMatch[1].trim();
+                const effectsPart = blockHeaderMatch[2].trim();
+                blockEffects = [];
+                // Find all (effect ...) groups
+                const effectRegex = /\(([^\)]+)\)/g;
+                let match;
+                while ((match = effectRegex.exec(effectsPart)) !== null) {
+                    const effectParts = match[1].trim().split(/\s+/);
+                    const effectType = effectParts[0];
+                    const params = effectParts.slice(1);
+                    blockEffects.push({ type: effectType, params });
+                }
+                if (blockEffects.length > 0) {
+                    this.effects.set(blockName, blockEffects);
+                }
+                currentBlock = blockName;
+                blockContent = [];
+                inCustomSample = false; // Ensure we are not in a custom sample block
+                continue;
+            }
+
+            // Block content or global command
+            if (currentBlock) {
+                blockContent.push(line);
+            } else {
+                this.globalCommands.push(line);
+            }
         }
+
+        return { success: true, message: 'Code parsed successfully' };
+    } catch (error) {
+        return { success: false, message: `Parse error: ${error.message}` };
     }
+}
 
     validate() {
         const errors = [];
