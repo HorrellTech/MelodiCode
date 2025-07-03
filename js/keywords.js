@@ -134,9 +134,25 @@ window.melodicodeKeywords = {
             { name: "parameters", desc: "volume=0.8, pan=0, etc." }
         ]
     },
+    playasync: {
+        description: "Play one or more blocks simultaneously, without waiting for the previous to finish.\nMust be called before the other play or loop commands",
+        usage: "playasync < block1 > [ block2... ] [ parameters... ]",
+        params: [
+            { name: "block1", desc: "Block name" },
+            { name: "parameters", desc: "volume=0.8, pan=0, etc." }
+        ]
+    },
     loop: {
         description: "Repeat a block a number of times.",
         usage: "loop < count > < block_name >",
+        params: [
+            { name: "count", desc: "Number of repetitions" },
+            { name: "block_name", desc: "Block to repeat" }
+        ]
+    },
+    loopasync: {
+        description: "Repeat a block a number of times, without waiting for the previous to finish.\nMust be called before the other play or loop commands",
+        usage: "loopasync < count > < block_name >",
         params: [
             { name: "count", desc: "Number of repetitions" },
             { name: "block_name", desc: "Block to repeat" }

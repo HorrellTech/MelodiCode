@@ -144,14 +144,14 @@ CodeMirror.defineSimpleMode("melodicode", {
 
         // Highlight block references (e.g. play main)
         {
-            regex: /\b(play|loop|effect)\s+([a-zA-Z0-9_]+)/,
+            regex: /\b(play|playasync|loop|loopasync|effect)\s+([a-zA-Z0-9_]+)/,
             token: function(stream) {
                 // Extract block name after command
-                const match = stream.match(/\b(play|loop|effect)\s+([a-zA-Z0-9_]+)/, false);
+                const match = stream.match(/\b(play|playasync|loop|loopasync|effect)\s+([a-zA-Z0-9_]+)/, false);
                 if (match) {
                     const definedBlocks = getDefinedBlocks();
                     // Move stream to after command
-                    stream.match(/\b(play|loop|effect)\s+/, true);
+                    stream.match(/\b(play|playasync|loop|loopasync|effect)\s+/, true);
                     const blockName = stream.match(/[a-zA-Z0-9_]+/, true);
                     if (blockName && definedBlocks.includes(blockName[0])) {
                         return ["keyword", "block"];

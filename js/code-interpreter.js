@@ -202,6 +202,7 @@ class CodeInterpreter {
                 }
                 break;
             case 'play':
+            case 'playasync':
                 if (parts.length < 2) {
                     return { valid: false, error: 'play command requires at least one block name' };
                 }
@@ -215,6 +216,7 @@ class CodeInterpreter {
                 }
                 break;
             case 'loop':
+            case 'loopasync':
                 if (parts.length < 3) {
                     return { valid: false, error: 'loop command requires count and at least one block name' };
                 }
@@ -320,6 +322,10 @@ class CodeInterpreter {
                 return this.executeWait(parts, startTime);
             case 'play':
                 return this.executePlay(parts, startTime);
+            case 'playasync':
+                return this.executePlayAsync(parts, startTime);
+            case 'loopasync':
+                return this.executeLoopAsync(parts, startTime);
             case 'loop':
                 return this.executeLoop(parts, startTime);
             case 'set':
@@ -877,14 +883,12 @@ class CodeInterpreter {
             // If max duration is 0, just play all blocks once simultaneously
             const promises = blockNames.map(blockName => this.executeBlock(blockName, startTime, params));
             await Promise.all(promises);
-            // Since duration is 0, we can return 0, but let's estimate just in case
-            const durations = blockNames.map(name => this.estimateDuration(name));
-            return Math.max(...durations, 0);
+            return 0;
         }
 
         const allExecutionPromises = [];
 
-        // Schedule all block executions
+        // Schedule all block executions - shorter blocks loop to match longest
         blockDurations.forEach(blockInfo => {
             const { name, duration } = blockInfo;
 
@@ -913,6 +917,118 @@ class CodeInterpreter {
         return maxDuration;
     }
 
+    async executePlayAsync(parts, startTime) {
+        const blockNames = [];
+        const params = {};
+
+        // Parse block names and parameters
+        for (let i = 1; i < parts.length; i++) {
+            if (parts[i].includes('=')) {
+                const [key, value] = parts[i].split('=');
+                params[key] = this.parseValue(value);
+            } else {
+                blockNames.push(parts[i]);
+            }
+        }
+
+        if (blockNames.length === 0) {
+            return 0;
+        }
+
+        // Start all blocks immediately without waiting for their completion
+        // This runs asynchronously and doesn't block the timeline
+        Promise.all(blockNames.map(blockName => 
+            this.executeBlock(blockName, startTime, params)
+        )).catch(error => {
+            console.error('Async play error:', error);
+        });
+
+        // Return 0 duration so execution continues immediately
+        return 0;
+    }
+
+    async executeLoopAsync(parts, startTime) {
+        const count = parseInt(parts[1]);
+        const blockNames = parts.slice(2);
+
+        // Validate block names
+        for (const blockName of blockNames) {
+            if (!this.blocks.has(blockName)) {
+                console.warn(`Block '${blockName}' not found`);
+                return 0;
+            }
+        }
+
+        // Start the async loop without waiting for completion
+        // This runs asynchronously and doesn't block the timeline
+        this.executeAsyncLoop(count, blockNames, startTime).catch(error => {
+            console.error('Async loop error:', error);
+        });
+
+        // Return 0 duration so execution continues immediately
+        return 0;
+    }
+
+    async executeAsyncLoop(count, blockNames, startTime) {
+        // Estimate durations for all blocks
+        const blockDurations = blockNames.map(name => ({
+            name,
+            duration: this.estimateDuration(name)
+        }));
+
+        // Find the maximum duration among all blocks in one iteration
+        const maxIterationDuration = Math.max(...blockDurations.map(b => b.duration), 0);
+
+        if (maxIterationDuration === 0) {
+            // If all blocks have 0 duration, just play them count times
+            for (let i = 0; i < count; i++) {
+                if (!this.isRunning) break;
+                const promises = blockNames.map(blockName =>
+                    this.executeBlock(blockName, startTime)
+                );
+                await Promise.all(promises);
+            }
+            return;
+        }
+
+        const allExecutionPromises = [];
+        let totalDuration = 0;
+
+        // For each iteration of the loop
+        for (let iteration = 0; iteration < count; iteration++) {
+            if (!this.isRunning) break;
+
+            const iterationStartTime = startTime + totalDuration;
+
+            // Schedule all blocks for this iteration - shorter blocks loop within the iteration
+            blockDurations.forEach(blockInfo => {
+                const { name, duration } = blockInfo;
+
+                if (duration <= 0) {
+                    // Play once if duration is 0
+                    allExecutionPromises.push(this.executeBlock(name, iterationStartTime));
+                } else {
+                    // Loop the block to fill the maxIterationDuration
+                    const loopCount = Math.ceil(maxIterationDuration / duration);
+
+                    for (let i = 0; i < loopCount; i++) {
+                        if (!this.isRunning) break;
+                        const loopStartTime = iterationStartTime + (i * duration);
+                        // Ensure we don't schedule past the iteration's max duration
+                        if (loopStartTime < iterationStartTime + maxIterationDuration) {
+                            allExecutionPromises.push(this.executeBlock(name, loopStartTime));
+                        }
+                    }
+                }
+            });
+
+            totalDuration += maxIterationDuration;
+        }
+
+        // Wait for all scheduled blocks to complete their execution logic
+        await Promise.all(allExecutionPromises);
+    }
+
     async executeLoop(parts, startTime) {
         const count = parseInt(parts[1]);
         const blockNames = parts.slice(2);
@@ -925,16 +1041,64 @@ class CodeInterpreter {
             }
         }
 
-        let totalDuration = 0;
-        for (let i = 0; i < count; i++) {
-            if (!this.isRunning) break;
-            // Play all blocks simultaneously, just like play
-            const promises = blockNames.map(blockName =>
-                this.executeBlock(blockName, startTime + totalDuration)
-            );
-            const durations = await Promise.all(promises);
-            totalDuration += Math.max(...durations, 0);
+        // Estimate durations for all blocks
+        const blockDurations = blockNames.map(name => ({
+            name,
+            duration: this.estimateDuration(name)
+        }));
+
+        // Find the maximum duration among all blocks in one iteration
+        const maxIterationDuration = Math.max(...blockDurations.map(b => b.duration), 0);
+
+        if (maxIterationDuration === 0) {
+            // If all blocks have 0 duration, just play them count times
+            let totalDuration = 0;
+            for (let i = 0; i < count; i++) {
+                if (!this.isRunning) break;
+                const promises = blockNames.map(blockName =>
+                    this.executeBlock(blockName, startTime + totalDuration)
+                );
+                await Promise.all(promises);
+            }
+            return 0;
         }
+
+        const allExecutionPromises = [];
+        let totalDuration = 0;
+
+        // For each iteration of the loop
+        for (let iteration = 0; iteration < count; iteration++) {
+            if (!this.isRunning) break;
+
+            const iterationStartTime = startTime + totalDuration;
+
+            // Schedule all blocks for this iteration - shorter blocks loop within the iteration
+            blockDurations.forEach(blockInfo => {
+                const { name, duration } = blockInfo;
+
+                if (duration <= 0) {
+                    // Play once if duration is 0
+                    allExecutionPromises.push(this.executeBlock(name, iterationStartTime));
+                } else {
+                    // Loop the block to fill the maxIterationDuration
+                    const loopCount = Math.ceil(maxIterationDuration / duration);
+
+                    for (let i = 0; i < loopCount; i++) {
+                        if (!this.isRunning) break;
+                        const loopStartTime = iterationStartTime + (i * duration);
+                        // Ensure we don't schedule past the iteration's max duration
+                        if (loopStartTime < iterationStartTime + maxIterationDuration) {
+                            allExecutionPromises.push(this.executeBlock(name, loopStartTime));
+                        }
+                    }
+                }
+            });
+
+            totalDuration += maxIterationDuration;
+        }
+
+        // Wait for all scheduled blocks to complete their execution logic
+        await Promise.all(allExecutionPromises);
 
         return totalDuration;
     }
