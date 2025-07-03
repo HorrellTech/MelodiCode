@@ -7,7 +7,7 @@ class UIManager {
         this.waveformCanvas = null;
         this.waveformContext = null;
         this.animationFrame = null;
-        
+
         this.initializeUI();
         this.setupEventListeners();
         this.initializeWaveform();
@@ -17,7 +17,7 @@ class UIManager {
     initializeUI() {
         // Set initial theme
         document.documentElement.setAttribute('data-theme', this.currentTheme);
-        
+
         // Initialize tooltips and other UI components
         this.initializeFileTree();
         this.setupModals();
@@ -40,7 +40,13 @@ class UIManager {
         // Code editor controls
         document.getElementById('formatCode').addEventListener('click', () => this.formatCode());
         document.getElementById('validateCode').addEventListener('click', () => this.validateCode());
-        
+
+        // Insert dropdown
+        const insertDropdown = document.getElementById('insertDropdown');
+        if (insertDropdown) {
+            insertDropdown.addEventListener('change', (e) => this.insertCodeSnippet(e.target.value));
+        }
+
         // Examples dropdown - handle gracefully if not found
         const examplesDropdown = document.getElementById('examplesDropdown');
         if (examplesDropdown) {
@@ -96,7 +102,7 @@ class UIManager {
         // Theme controls
         const themeSelect = document.getElementById('themeSelect');
         const accentColor = document.getElementById('accentColor');
-        
+
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
                 this.setTheme(e.target.value);
@@ -152,7 +158,7 @@ class UIManager {
                 const value = (slider.value - slider.min) / (slider.max - slider.min) * 100;
                 slider.style.setProperty('--slider-progress', `${value}%`);
             };
-            
+
             slider.addEventListener('input', updateSliderProgress);
             updateSliderProgress(); // Set initial value
         });
@@ -176,7 +182,7 @@ class UIManager {
         document.querySelectorAll('.tree-folder').forEach(folder => {
             const toggle = folder.querySelector('.toggle');
             const folderItem = folder.querySelector('.tree-item.folder');
-            
+
             folderItem.addEventListener('click', () => {
                 folder.classList.toggle('collapsed');
             });
@@ -233,13 +239,13 @@ class UIManager {
 
         // Check if there's existing code
         const currentCode = window.editor ? window.editor.getValue() : '';
-        
+
         if (currentCode.trim()) {
             const shouldReplace = confirm(
                 `Loading "${exampleName}" will replace your current code. Do you want to continue?\n\n` +
                 `Tip: Save your current work first if you want to keep it.`
             );
-            
+
             if (!shouldReplace) {
                 // Reset dropdown to default
                 const dropdown = document.getElementById('examplesDropdown');
@@ -253,11 +259,11 @@ class UIManager {
             window.editor.setValue(exampleCode);
             this.updateBlockInspector();
             this.updateStatus(`Loaded example: ${exampleName}`);
-            
+
             // Reset dropdown to default
             const dropdown = document.getElementById('examplesDropdown');
             if (dropdown) dropdown.value = '';
-            
+
             // Show success message
             this.showSuccess(`Example "${exampleName}" loaded successfully!`);
         }
@@ -340,12 +346,12 @@ class UIManager {
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
 
             ctx.fillStyle = accentColor;
-            
+
             for (let i = 0; i < analyserData.length; i++) {
                 const barHeight = (analyserData[i] / 255) * height;
                 const x = i * barWidth;
                 const y = height - barHeight;
-                
+
                 ctx.fillRect(x, y, barWidth - 1, barHeight);
             }
         } catch (error) {
@@ -357,10 +363,10 @@ class UIManager {
         try {
             this.stop(); // Stop any previous playback
             this.updateStatus('Parsing code...');
-            
+
             const code = window.editor.getValue() || '';
             const parseResult = window.codeInterpreter.parse(code);
-            
+
             if (!parseResult.success) {
                 this.showError(parseResult.message);
                 return;
@@ -374,10 +380,10 @@ class UIManager {
             this.updateStatus('Playing...');
             this.isPlaying = true;
             this.updateTransportButtons();
-            
+
             window.audioEngine.play();
             await window.codeInterpreter.execute();
-            
+
         } catch (error) {
             this.showError('Playback error: ' + error.message);
             this.stop();
@@ -405,7 +411,7 @@ class UIManager {
     updateTransportButtons() {
         const playBtn = document.getElementById('playBtn');
         const pauseBtn = document.getElementById('pauseBtn');
-        
+
         if (this.isPlaying) {
             playBtn.classList.remove('active');
             pauseBtn.classList.add('active');
@@ -457,33 +463,84 @@ class UIManager {
                 <i class="fas fa-play"></i>
             </button>
         `;
-        
+
         const playBtn = sampleItem.querySelector('.play-sample');
         playBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.playSample(sampleName);
         });
-        
+
         projectFiles.appendChild(sampleItem);
     }
 
     formatCode() {
         const code = window.editor.getValue() || '';
-        const parseResult = window.codeInterpreter.parse(code);
-        
-        if (parseResult.success) {
-            const formatted = window.codeInterpreter.formatCode();
-            window.editor.setValue(formatted);
-            this.updateStatus('Code formatted');
-        } else {
-            this.showError('Cannot format invalid code');
+        if (!code.trim()) {
+            this.showError('No code to format');
+            return;
         }
+
+        // Simple indentation formatter - preserves structure, only fixes indentation
+        const lines = code.split('\n');
+        let formattedLines = [];
+        let indentLevel = 0;
+        const indentSize = 4; // 4 spaces per indent level
+
+        for (let line of lines) {
+            const trimmedLine = line.trim();
+
+            // Skip empty lines and comments - preserve as is
+            if (!trimmedLine || trimmedLine.startsWith('//')) {
+                formattedLines.push(line);
+                continue;
+            }
+
+            // Decrease indent for block endings
+            if (trimmedLine === '[end]' || trimmedLine === '<end>') {
+                indentLevel = Math.max(0, indentLevel - 1);
+            }
+
+            // Apply current indentation
+            const indent = ' '.repeat(indentLevel * indentSize);
+            formattedLines.push(indent + trimmedLine);
+
+            // Increase indent for block starts (including those with effects)
+            // Check for [blockname] or [blockname] (effect...) but not [end]
+            if (trimmedLine.startsWith('[') && !trimmedLine.includes('end')) {
+                // Find the closing bracket for the block name
+                const closingBracket = trimmedLine.indexOf(']');
+                if (closingBracket !== -1) {
+                    const blockPart = trimmedLine.substring(0, closingBracket + 1);
+                    // Make sure it's a proper block declaration like [blockname]
+                    if (blockPart.length > 2) {
+                        indentLevel++;
+                    }
+                }
+            }
+            // Check for <blockname> or <blockname> (effect...) but not <end>
+            else if (trimmedLine.startsWith('<') && !trimmedLine.includes('end')) {
+                // Find the closing bracket for the block name
+                const closingBracket = trimmedLine.indexOf('>');
+                if (closingBracket !== -1) {
+                    const blockPart = trimmedLine.substring(0, closingBracket + 1);
+                    // Make sure it's a proper block declaration like <blockname>
+                    if (blockPart.length > 2) {
+                        indentLevel++;
+                    }
+                }
+            }
+        }
+
+        const formattedCode = formattedLines.join('\n');
+        window.editor.setValue(formattedCode);
+        this.updateBlockInspector();
+        this.updateStatus('Code formatted');
     }
 
     validateCode() {
         const code = window.editor.getValue() || '';
         const parseResult = window.codeInterpreter.parse(code);
-        
+
         if (!parseResult.success) {
             this.showError(parseResult.message);
             return;
@@ -500,16 +557,16 @@ class UIManager {
     updateBlockInspector() {
         const code = window.editor ? window.editor.getValue() : '';
         const parseResult = window.codeInterpreter.parse(code);
-        
+
         const inspector = document.getElementById('blockInspector');
-        
+
         if (!parseResult.success) {
             inspector.innerHTML = '<p style="color: var(--error-color);">Parse Error</p>';
             return;
         }
 
         const blocks = window.codeInterpreter.getAllBlocks();
-        
+
         if (blocks.length === 0) {
             inspector.innerHTML = '<p>No blocks found</p>';
             return;
@@ -527,7 +584,7 @@ class UIManager {
                 </div>
             `;
         }
-        
+
         inspector.innerHTML = html;
     }
 
@@ -670,17 +727,17 @@ play main`);
 
     loadSettings() {
         const settings = JSON.parse(localStorage.getItem('melodicode-settings') || '{}');
-        
+
         if (settings.theme) {
             document.getElementById('themeSelect').value = settings.theme;
             this.setTheme(settings.theme);
         }
-        
+
         if (settings.accentColor) {
             document.getElementById('accentColor').value = settings.accentColor;
             this.setAccentColor(settings.accentColor);
         }
-        
+
         if (settings.geminiApiKey) {
             document.getElementById('geminiApiKey').value = settings.geminiApiKey;
         }
@@ -695,7 +752,7 @@ play main`);
             sampleRate: document.getElementById('sampleRate').value,
             bufferSize: document.getElementById('bufferSize').value
         };
-        
+
         localStorage.setItem('melodicode-settings', JSON.stringify(settings));
         this.hideSettings();
         this.updateStatus('Settings saved');
@@ -763,7 +820,7 @@ play main`);
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
         entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-        
+
         outputLog.appendChild(entry);
         outputLog.scrollTop = outputLog.scrollHeight;
 
@@ -771,6 +828,203 @@ play main`);
         while (outputLog.children.length > 100) {
             outputLog.removeChild(outputLog.firstChild);
         }
+    }
+
+    insertCodeSnippet(snippetType) {
+        if (!snippetType || !window.editor) return;
+
+        const cursor = window.editor.getCursor();
+        const templates = {
+            // Blocks
+            block: `[block_name]
+    // Add your commands here
+    
+[end]
+`,
+
+            sample_block: `<sample_name>
+    // Custom sample - all commands play simultaneously
+    
+<end>
+`,
+
+            main_block: `[main]
+    // Main block to orchestrate your music
+    
+[end]
+
+play main`,
+
+            // Commands
+            tone: `tone C4 0.5 sine 0.8`,
+            sample: `sample kick 1 1 0.8 0`,
+            slide: `slide C4 G4 1 sine 0.8`,
+            wait: `wait 0.5`,
+            bpm: `bpm 120`,
+
+            // Control Flow
+            if_block: `if variable == value
+    // Commands to execute if condition is true
+    
+endif`,
+
+            for_loop: `for i 1 4
+    // Commands to repeat
+    
+endfor`,
+
+            play: `play block_name volume=0.8 pan=0`,
+            loop: `loop 4 block_name`,
+            playasync: `playasync block_name`,
+
+            // Patterns
+            pattern: `pattern kick "1-0-1-0-"`,
+            sequence: `sequence drums kick snare hihat snare`,
+            sidechain: `sidechain block1 block2 0.8`,
+
+            // Effects
+            reverb_effect: `[block_name] (reverb 0.3)
+    // Block content with reverb effect
+    
+[end]`,
+
+            delay_effect: `[block_name] (delay 0.3 0.3 0.3)
+    // Block content with delay effect
+    
+[end]`,
+
+            filter_effect: `[block_name] (filter lowpass 1000 1)
+    // Block content with filter effect
+    
+[end]`,
+
+            distortion_effect: `[block_name] (distortion 10)
+    // Block content with distortion effect
+    
+[end]`,
+
+            // Templates
+            drum_pattern: `[drums]
+    sample kick
+    wait 0.5
+    sample snare
+    wait 0.5
+    sample hihat
+    wait 0.25
+    sample hihat
+    wait 0.25
+[end]`,
+
+            melody_template: `[melody]
+    // Simple melody pattern
+    tone C4 0.5 sine 0.7
+    tone D4 0.5 sine 0.7
+    tone E4 0.5 sine 0.7
+    tone F4 0.5 sine 0.7
+    tone G4 1.0 sine 0.7
+[end]`,
+
+            bass_template: `[bass]
+    // Bass line pattern
+    tone C2 0.5 sawtooth 0.8
+    wait 0.5
+    tone G2 0.5 sawtooth 0.8
+    wait 0.5
+    tone F2 0.5 sawtooth 0.8
+    wait 0.5
+    tone E2 0.5 sawtooth 0.8
+    wait 0.5
+[end]`,
+
+            full_song: `// Full song structure template
+bpm 120
+
+// Custom samples
+<kick_drum>
+    tone C2 0.2 sine 0.9
+    tone C3 0.1 square 0.3
+<end>
+
+<snare_drum>
+    tone D3 0.1 triangle 0.7
+    tone G3 0.05 square 0.4
+<end>
+
+// Music blocks
+[intro]
+    play melody
+[end]
+
+[verse]
+    play melody bass drums
+[end]
+
+[chorus]
+    play chorus_melody bass drums
+[end]
+
+[melody]
+    tone C4 0.5 sine 0.7
+    tone D4 0.5 sine 0.7
+    tone E4 0.5 sine 0.7
+    tone G4 1.0 sine 0.7
+[end]
+
+[chorus_melody]
+    tone C5 0.5 sawtooth 0.8
+    tone G4 0.5 sawtooth 0.8
+    tone A4 0.5 sawtooth 0.8
+    tone G4 1.0 sawtooth 0.8
+[end]
+
+[bass]
+    tone C2 0.5 sawtooth 0.8
+    wait 0.5
+    tone G2 0.5 sawtooth 0.8
+    wait 0.5
+[end]
+
+[drums]
+    sample kick_drum
+    wait 0.5
+    sample snare_drum
+    wait 0.5
+[end]
+
+[main]
+    play intro
+    loop 2 verse
+    play chorus
+    loop 2 verse
+    play chorus
+[end]
+
+play main`
+        };
+
+        const template = templates[snippetType];
+        if (template) {
+            // Get current line to check indentation
+            const currentLine = window.editor.getLine(cursor.line);
+            const leadingWhitespace = currentLine.match(/^\s*/)[0];
+            
+            // Apply indentation to each line of the template
+            const indentedTemplate = template.split('\n').map((line, index) => {
+                if (index === 0) return line; // Don't indent first line
+                return leadingWhitespace + line;
+            }).join('\n');
+
+            // Insert the template at cursor position
+            window.editor.replaceSelection(indentedTemplate);
+            
+            // Update UI
+            this.updateBlockInspector();
+            this.updateStatus(`Inserted ${snippetType} template`);
+        }
+
+        // Reset dropdown
+        const dropdown = document.getElementById('insertDropdown');
+        if (dropdown) dropdown.value = '';
     }
 }
 

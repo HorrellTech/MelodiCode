@@ -1174,6 +1174,7 @@ input[type="range"]::-moz-range-progress {
     color: var(--accent-color) !important;
 }
 
+#insertDropdown,
 #examplesDropdown {
     margin-right: 0.5rem;
     background-color: var(--secondary-bg);
@@ -1184,21 +1185,39 @@ input[type="range"]::-moz-range-progress {
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    min-width: 120px;
 }
 
+#insertDropdown:hover,
 #examplesDropdown:hover {
     background-color: var(--accent-color);
     color: var(--primary-bg);
 }
 
+#insertDropdown:focus,
 #examplesDropdown:focus {
     outline: none;
     border-color: var(--accent-color);
     box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
 }
 
+#insertDropdown option,
 #examplesDropdown option {
     background-color: var(--secondary-bg);
     color: var(--text-primary);
     padding: 0.25rem;
+}
+
+#insertDropdown optgroup {
+    background-color: var(--tertiary-bg);
+    color: var(--accent-color);
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+/* Editor actions layout */
+.editor-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
 }
