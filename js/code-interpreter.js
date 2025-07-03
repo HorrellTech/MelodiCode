@@ -792,8 +792,8 @@ class CodeInterpreter {
     }
 
     async executeSidechain(parts, startTime) {
-        const block1 = parts[1];
-        const block2 = parts[2];
+        const block1 = parts[1]; // Block to be ducked
+        const block2 = parts[2]; // Trigger block
         const amount = parseFloat(parts[3]);
 
         if (!this.blocks.has(block1) || !this.blocks.has(block2)) {
@@ -809,108 +809,171 @@ class CodeInterpreter {
 
         // Create a compressor for more realistic sidechain effect
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.value = -24;
-        compressor.knee.value = 30;
-        compressor.ratio.value = 12;
+        compressor.threshold.value = -50;
+        compressor.knee.value = 40;
+        compressor.ratio.value = 20;
         compressor.attack.value = 0.003;
-        compressor.release.value = 0.25;
+        compressor.release.value = 0.1;
 
         // Connect sidechain gain to compressor to output
         sidechainGain.connect(compressor);
         compressor.connect(this.audioEngine.eq.low);
 
-        // Override playSample and executeTone for block1 to route through sidechain gain
+        // Calculate durations for both blocks
+        const block1Duration = this.estimateDuration(block1);
+        const block2Duration = this.estimateDuration(block2);
+        
+        // Use the longer duration, but ensure we have at least some playback time
+        const maxDuration = Math.max(block1Duration, block2Duration, 4); // Minimum 4 seconds
+
+        console.log(`Sidechain: block1 (${block1}) duration: ${block1Duration}s, block2 (${block2}) duration: ${block2Duration}s, total: ${maxDuration}s`);
+
+        // Override methods to route audio properly
         const originalPlaySample = this.audioEngine.playSample.bind(this.audioEngine);
         const originalExecuteTone = this.executeTone.bind(this);
         
-        let isBlock1Playing = false;
+        let currentExecutingBlock = null;
 
-        // Create new methods that route block1 audio through sidechain gain
+        // Create routing methods
         const sidechainPlaySample = (sampleName, pitch, timescale, when, volume, pan, outputNode) => {
-            if (isBlock1Playing) {
-                // Route block1 samples through sidechain gain
+            if (currentExecutingBlock === block1) {
+                // Route block1 through sidechain gain
                 return originalPlaySample(sampleName, pitch, timescale, when, volume, pan, sidechainGain);
             } else {
-                // Block2 samples go directly to output (bypass sidechain)
-                return originalPlaySample(sampleName, pitch, timescale, when, volume, pan, outputNode);
+                // Block2 goes directly to output
+                return originalPlaySample(sampleName, pitch, timescale, when, volume, pan, this.audioEngine.eq.low);
             }
         };
 
         const sidechainExecuteTone = (parts, startTime, effectNodes) => {
-            if (isBlock1Playing) {
+            if (currentExecutingBlock === block1) {
                 // Route block1 tones through sidechain gain
                 return originalExecuteTone.call(this, parts, startTime, [sidechainGain]);
             } else {
                 // Block2 tones go directly to output
-                return originalExecuteTone.call(this, parts, startTime, effectNodes);
+                return originalExecuteTone.call(this, parts, startTime, [this.audioEngine.eq.low]);
             }
         };
 
-        // Create trigger detection for block2
-        const createTriggerDetection = () => {
-            const block2Commands = this.blocks.get(block2);
-            const triggerTimes = [];
-            let currentTime = 0;
+        // Analyze block2 for trigger detection
+        const getTriggerTimes = (blockName, blockDuration, totalDuration) => {
+            const commands = this.blocks.get(blockName);
+            const triggers = [];
+            
+            const loopCount = blockDuration > 0 ? Math.ceil(totalDuration / blockDuration) : 1;
+            
+            for (let loop = 0; loop < loopCount; loop++) {
+                const loopStart = loop * blockDuration;
+                if (loopStart >= totalDuration) break;
+                
+                let time = 0;
+                
+                for (const command of commands) {
+                    const cmdParts = command.split(/\s+/);
+                    const cmd = cmdParts[0];
 
-            // Analyze block2 to find when samples/tones trigger
-            for (const command of block2Commands) {
-                const parts = command.split(/\s+/);
-                const cmd = parts[0];
-
-                if (cmd === 'sample' || cmd === 'tone') {
-                    triggerTimes.push(currentTime);
-                    if (cmd === 'tone') {
-                        const duration = this.parseValue(parts[2] || '1') * this.beatDuration;
-                        currentTime += duration;
+                    if (cmd === 'sample') {
+                        triggers.push(loopStart + time);
+                    } else if (cmd === 'tone') {
+                        triggers.push(loopStart + time);
+                        const duration = this.parseValue(cmdParts[2] || '1') * this.beatDuration;
+                        time += duration;
+                    } else if (cmd === 'slide') {
+                        triggers.push(loopStart + time);
+                        const duration = this.parseValue(cmdParts[3] || '1') * this.beatDuration;
+                        time += duration;
+                    } else if (cmd === 'wait') {
+                        time += this.parseValue(cmdParts[1]) * this.beatDuration;
+                    } else if (cmd === 'pattern') {
+                        // Handle pattern triggers
+                        for (let i = 2; i < cmdParts.length; i += 2) {
+                            if (i + 1 < cmdParts.length) {
+                                const patternStr = cmdParts[i + 1].replace(/"/g, '');
+                                const steps = patternStr.split('-');
+                                const stepDuration = this.beatDuration / 4;
+                                
+                                for (let j = 0; j < steps.length; j++) {
+                                    if (steps[j].trim() === '1' || steps[j].trim() === 'x' || steps[j].trim() === 'X') {
+                                        triggers.push(loopStart + time + (j * stepDuration));
+                                    }
+                                }
+                                time += steps.length * stepDuration;
+                            }
+                        }
                     }
-                } else if (cmd === 'wait') {
-                    currentTime += this.parseValue(parts[1]) * this.beatDuration;
-                } else if (cmd === 'slide') {
-                    const duration = this.parseValue(parts[3] || '1') * this.beatDuration;
-                    currentTime += duration;
                 }
             }
-
-            return triggerTimes;
+            
+            return triggers;
         };
 
-        const triggerTimes = createTriggerDetection();
-        const duckingDuration = 0.1; // Duration of ducking effect in seconds
+        // Get all trigger times from block2
+        const triggerTimes = getTriggerTimes(block2, block2Duration, maxDuration);
+        console.log(`Sidechain: Found ${triggerTimes.length} triggers at times:`, triggerTimes);
 
-        // Schedule ducking automation for each trigger
-        triggerTimes.forEach(triggerTime => {
-            const absoluteTriggerTime = ctx.currentTime + startTime + triggerTime;
-            
-            // Duck the volume when block2 triggers
-            sidechainGain.gain.setValueAtTime(1, absoluteTriggerTime);
-            sidechainGain.gain.linearRampToValueAtTime(1 - amount, absoluteTriggerTime + 0.01);
-            sidechainGain.gain.linearRampToValueAtTime(1, absoluteTriggerTime + duckingDuration);
+        // Schedule ducking automation
+        const duckDuration = 0.15; // How long the duck lasts
+        const attackTime = 0.01;   // How quickly it ducks
+
+        triggerTimes.forEach((triggerTime, index) => {
+            if (triggerTime < maxDuration) {
+                const absoluteTime = ctx.currentTime + startTime + triggerTime;
+                
+                console.log(`Scheduling duck ${index + 1} at ${triggerTime}s (absolute: ${absoluteTime}s)`);
+                
+                // Duck the gain
+                sidechainGain.gain.cancelScheduledValues(absoluteTime);
+                sidechainGain.gain.setValueAtTime(1, absoluteTime);
+                sidechainGain.gain.linearRampToValueAtTime(1 - amount, absoluteTime + attackTime);
+                sidechainGain.gain.linearRampToValueAtTime(1, absoluteTime + duckDuration);
+            }
         });
 
-        // Temporarily override methods
+        // Override the audio methods
         this.audioEngine.playSample = sidechainPlaySample;
         this.executeTone = sidechainExecuteTone;
 
         try {
-            // Execute both blocks
-            isBlock1Playing = true;
-            const block1Promise = this.executeBlock(block1, startTime);
-            
-            isBlock1Playing = false;
-            const block2Promise = this.executeBlock(block2, startTime);
+            const promises = [];
 
-            await Promise.all([block1Promise, block2Promise]);
-
-            // Calculate total duration
-            const block1Duration = this.estimateDuration(block1);
-            const block2Duration = this.estimateDuration(block2);
+            // Execute block1 (gets sidechained)
+            currentExecutingBlock = block1;
+            if (block1Duration > 0 && block1Duration < maxDuration) {
+                // Loop block1 to fill duration
+                const loops = Math.ceil(maxDuration / block1Duration);
+                for (let i = 0; i < loops; i++) {
+                    const loopStart = startTime + (i * block1Duration);
+                    if (loopStart < startTime + maxDuration) {
+                        promises.push(this.executeBlock(block1, loopStart));
+                    }
+                }
+            } else {
+                promises.push(this.executeBlock(block1, startTime));
+            }
             
-            return Math.max(block1Duration, block2Duration);
+            // Execute block2 (triggers sidechain)
+            currentExecutingBlock = block2;
+            if (block2Duration > 0 && block2Duration < maxDuration) {
+                // Loop block2 to fill duration
+                const loops = Math.ceil(maxDuration / block2Duration);
+                for (let i = 0; i < loops; i++) {
+                    const loopStart = startTime + (i * block2Duration);
+                    if (loopStart < startTime + maxDuration) {
+                        promises.push(this.executeBlock(block2, loopStart));
+                    }
+                }
+            } else {
+                promises.push(this.executeBlock(block2, startTime));
+            }
+
+            await Promise.all(promises);
+            return maxDuration;
 
         } finally {
             // Restore original methods
             this.audioEngine.playSample = originalPlaySample;
             this.executeTone = originalExecuteTone;
+            currentExecutingBlock = null;
         }
     }
 

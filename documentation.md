@@ -451,7 +451,75 @@ sample bass_drum
 
 ---
 
+### 7. **Sidechain Compression**
 
+Create classic sidechain compression effects where one block ducks the volume of another:
+
+```melodicode
+sidechain <block1> <block2> <amount>
+```
+
+- `block1`: The block that gets ducked (volume reduced)
+- `block2`: The trigger block that causes the ducking
+- `amount`: Ducking intensity 0-1 (0 = no effect, 1 = full duck)
+
+**How it works:**
+- When `block2` plays samples or tones, `block1`'s volume gets temporarily reduced
+- Creates the classic "pumping" effect common in electronic music
+- `block1` audio is routed through a compressor for realistic ducking
+
+**Examples:**
+```melodicode
+bpm 128
+
+[bass]
+    tone C2 2 sawtooth 0.8
+    tone F2 2 sawtooth 0.8
+[end]
+
+[kick]
+    sample kick
+    wait 1
+    sample kick
+    wait 1
+[end]
+
+[main]
+    sidechain bass kick 0.7  // Duck bass by 70% when kick hits
+[end]
+
+play main
+```
+
+**Advanced Sidechain Example:**
+```melodicode
+bpm 130
+
+[pad] (reverb 0.4)
+    tone C4 4 sine 0.6
+    tone E4 4 sine 0.6
+    tone G4 4 sine 0.6
+[end]
+
+[drums]
+    pattern kick "1-0-1-0-"
+    pattern snare "0-0-1-0-"
+[end]
+
+[main]
+    sidechain pad drums 0.8  // Heavy sidechain on pad from drums
+[end]
+
+play main
+```
+
+**Sidechain Tips:**
+- Use values between 0.5-0.8 for subtle pumping
+- Values above 0.8 create dramatic ducking effects
+- Works great with sustained sounds (pads, bass) triggered by percussive elements
+- The ducking duration is automatically calculated (about 0.1 seconds)
+
+---
 
 ## 🏁 Full Example: Simple Tune
 
