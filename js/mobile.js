@@ -1,6 +1,6 @@
 class MobileControls {
     constructor() {
-        this.isMobile = window.innerWidth <= 768;
+        this.isMobile = this.checkMobile();
         this.activePanel = 'center';
         this.touchStartX = 0;
         this.touchStartY = 0;
@@ -10,7 +10,7 @@ class MobileControls {
         this.init();
     }
 
-    init() {
+    /*init() {
         if (!this.isMobile) return;
 
         this.createMobileLayout();
@@ -23,6 +23,44 @@ class MobileControls {
         this.updateArrowVisibility();
         this.setupModalHandling();
         this.setupToolbarScrolling();
+    }*/
+
+    init() {
+        if (!this.isMobile) return;
+
+        // Add mobile class to body immediately
+        document.body.classList.add('mobile-mode');
+
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.initializeMobile();
+            });
+        } else {
+            this.initializeMobile();
+        }
+    }
+
+    initializeMobile() {
+        this.createMobileLayout();
+        this.createMobileArrows();
+        this.bindTouchEvents();
+        this.bindMobileNavigation();
+        this.bindArrowNavigation();
+        this.handleOrientationChange();
+        this.optimizeForMobile();
+        this.updateArrowVisibility();
+        this.setupModalHandling();
+        this.setupToolbarScrolling();
+    }
+
+    checkMobile() {
+        // More reliable mobile detection
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isMobileDevice = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+        const isSmallScreen = window.innerWidth <= 768;
+
+        return isMobileDevice || isSmallScreen;
     }
 
     createMobileLayout() {
@@ -286,24 +324,30 @@ class MobileControls {
         // Update active panel
         this.activePanel = panelName;
 
-        // Update navigation
+        // Update navigation buttons
         const navBtns = document.querySelectorAll('.mobile-nav-btn');
         navBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.panel === panelName);
         });
 
-        // Update panel visibility
+        // Update panel visibility with proper classes
         const panels = {
             left: document.querySelector('.left-panel'),
             center: document.querySelector('.center-panel'),
             right: document.querySelector('.right-panel')
         };
 
-        Object.keys(panels).forEach(key => {
-            if (panels[key]) {
-                panels[key].classList.toggle('active', key === panelName);
+        // Remove active from all panels first
+        Object.values(panels).forEach(panel => {
+            if (panel) {
+                panel.classList.remove('active');
             }
         });
+
+        // Add active to the target panel
+        if (panels[panelName]) {
+            panels[panelName].classList.add('active');
+        }
 
         // Update arrow visibility
         this.updateArrowVisibility();
@@ -361,16 +405,33 @@ class MobileControls {
 
         if (toolbar) {
             // Enable smooth scrolling for toolbar
+            toolbar.addEventListener('touchstart', (e) => {
+                // Allow horizontal scrolling
+                e.stopPropagation();
+            }, { passive: true });
+
             toolbar.addEventListener('touchmove', (e) => {
                 // Allow horizontal scrolling
+                e.stopPropagation();
+            }, { passive: true });
+
+            // Prevent toolbar from interfering with panel swipes
+            toolbar.addEventListener('touchend', (e) => {
                 e.stopPropagation();
             }, { passive: true });
         }
 
         if (projectControls) {
             // Enable smooth scrolling for project controls
+            projectControls.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
+
             projectControls.addEventListener('touchmove', (e) => {
-                // Allow horizontal scrolling
+                e.stopPropagation();
+            }, { passive: true });
+
+            projectControls.addEventListener('touchend', (e) => {
                 e.stopPropagation();
             }, { passive: true });
         }
@@ -379,8 +440,8 @@ class MobileControls {
         const toolbarButtons = document.querySelectorAll('.toolbar .btn');
         toolbarButtons.forEach(btn => {
             btn.addEventListener('touchend', (e) => {
-                // Prevent double-tap zoom
                 e.preventDefault();
+                e.stopPropagation();
                 btn.click();
             }, { passive: false });
         });
