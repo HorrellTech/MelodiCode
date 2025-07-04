@@ -639,6 +639,20 @@ play main`);
     }
 
     async exportWAV() {
+        // Check if code contains TTS
+        const code = window.editor.getValue();
+        if (code.includes('tts ')) {
+            const proceed = confirm(
+                'Your code contains TTS commands. WAV export will:\n' +
+                '• Attempt to capture TTS audio (may be silent)\n' +
+                '• Include estimated timing for TTS\n' +
+                '• Work best in Chrome/Edge browsers\n' +
+                'This may add silence where TTS is called.\n\n' +
+                'Continue with export?'
+            );
+            if (!proceed) return;
+        }
+
         try {
             this.updateStatus('Exporting WAV...');
             const duration = 30; // seconds, or make this user-configurable
