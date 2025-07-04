@@ -877,26 +877,43 @@ class UIManager {
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
 
-            // Calculate average volume and frequency distribution
+            // Calculate average volume and frequency distribution - increased caps for fuller tree
             const avgVolume = analyserData.reduce((sum, val) => sum + val, 0) / analyserData.length;
-            const volumeIntensity = avgVolume / 255;
-            const lowFreq = analyserData.slice(0, 8).reduce((sum, val) => sum + val, 0) / 8 / 255;
-            const midFreq = analyserData.slice(8, 16).reduce((sum, val) => sum + val, 0) / 8 / 255;
-            const highFreq = analyserData.slice(16, 24).reduce((sum, val) => sum + val, 0) / 8 / 255;
+            const volumeIntensity = Math.min(avgVolume / 255, 0.8); // Increased from 0.5
+            const lowFreq = Math.min(analyserData.slice(0, 8).reduce((sum, val) => sum + val, 0) / 8 / 255, 0.6); // Increased from 0.3
+            const midFreq = Math.min(analyserData.slice(8, 16).reduce((sum, val) => sum + val, 0) / 8 / 255, 0.7); // Increased from 0.4
+            const highFreq = Math.min(analyserData.slice(16, 24).reduce((sum, val) => sum + val, 0) / 8 / 255, 0.6); // Increased from 0.3
 
-            // Update tree animation state
-            this.treeState.swayOffset += 0.01;
-            this.treeState.pulsePhase += 0.03;
+            // Initialize smooth animation values if not present
+            if (!this.treeState.smoothSway) {
+                this.treeState.smoothSway = 0;
+                this.treeState.targetSway = 0;
+                this.treeState.smoothPulse = 0;
+                this.treeState.targetPulse = 0;
+            }
+
+            // Very smooth animation state updates
+            this.treeState.swayOffset += 0.003; // Slower base oscillation
+            this.treeState.pulsePhase += 0.008; // Slower pulse
+
+            // Calculate target sway based on natural sine wave + audio influence
+            const baseSway = Math.sin(this.treeState.swayOffset) * 2; // Gentle base sway
+            const audioSway = Math.sin(this.treeState.swayOffset * 0.7) * lowFreq * 4; // Audio-influenced sway
+            this.treeState.targetSway = baseSway + audioSway;
+
+            // Smooth interpolation towards target sway (reduces snapping)
+            const swayLerpFactor = 0.05; // How quickly to approach target (lower = smoother)
+            this.treeState.smoothSway += (this.treeState.targetSway - this.treeState.smoothSway) * swayLerpFactor;
 
             // Tree base position
             const baseX = width / 2;
             const baseY = height - 10;
 
-            // Gentle sway based on low frequencies
-            const swayAmount = Math.sin(this.treeState.swayOffset) * lowFreq * 8;
+            // Use smooth sway value
+            const swayAmount = this.treeState.smoothSway;
 
-            // Draw the tree recursively
-            this.drawTreeBranch(ctx, baseX, baseY, -Math.PI / 2, height * 0.25, 8, 0, swayAmount, volumeIntensity, midFreq, highFreq, accentColor);
+            // Draw the tree recursively with better proportions
+            this.drawTreeBranch(ctx, baseX, baseY, -Math.PI / 2, height * 0.23, 6, 0, swayAmount, volumeIntensity, midFreq, highFreq, accentColor);
 
             // Draw ground line
             ctx.strokeStyle = this.adjustBrightness(accentColor, -40);
@@ -906,13 +923,15 @@ class UIManager {
             ctx.lineTo(width, baseY);
             ctx.stroke();
 
-            // Draw pulsing aura around tree base
-            const pulseRadius = 15 + Math.sin(this.treeState.pulsePhase) * 10 * volumeIntensity;
+            // Smooth pulsing aura around tree base
+            this.treeState.targetPulse = 12 + Math.sin(this.treeState.pulsePhase) * 4 * volumeIntensity;
+            this.treeState.smoothPulse += (this.treeState.targetPulse - this.treeState.smoothPulse) * 0.1;
+
             ctx.strokeStyle = accentColor;
-            ctx.globalAlpha = 0.3 * volumeIntensity;
-            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.15 * volumeIntensity;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(baseX, baseY - 20, pulseRadius, 0, Math.PI * 2);
+            ctx.arc(baseX, baseY - 20, this.treeState.smoothPulse, 0, Math.PI * 2);
             ctx.stroke();
             ctx.globalAlpha = 1;
 
@@ -922,17 +941,22 @@ class UIManager {
     }
 
     drawTreeBranch(ctx, x, y, angle, length, thickness, depth, swayAmount, volumeIntensity, midFreq, highFreq, accentColor) {
-        // Maximum recursion depth
-        if (depth > 6 || length < 5) return;
+        // Maximum recursion depth - increased for fuller tree
+        if (depth > 7 || length < 3) return;
 
-        // Calculate branch end position with sway
-        const swayFactor = Math.pow(0.8, depth); // Sway decreases with depth
+        // Calculate branch end position with smooth sway
+        const swayFactor = Math.pow(0.9, depth); // Gentler sway reduction with depth
         const actualSway = swayAmount * swayFactor;
-        const endX = x + Math.cos(angle) * length + actualSway;
+
+        // Add secondary sway motion for more natural movement
+        const secondarySway = Math.sin(this.treeState.swayOffset * 1.3 + depth * 0.5) * swayFactor * 0.5;
+        const totalSway = actualSway + secondarySway;
+
+        const endX = x + Math.cos(angle) * length + totalSway;
         const endY = y + Math.sin(angle) * length;
 
-        // Branch thickness decreases with depth and reacts to volume
-        const branchThickness = Math.max(1, thickness * (0.7 + volumeIntensity * 0.3));
+        // Branch thickness with subtle volume reaction
+        const branchThickness = Math.max(1, thickness * (0.85 + volumeIntensity * 0.15));
 
         // Draw the branch
         ctx.strokeStyle = depth === 0 ? this.adjustBrightness(accentColor, -30) : accentColor;
@@ -942,28 +966,30 @@ class UIManager {
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
-        // Only create sub-branches if we have enough length and haven't reached max depth
-        if (length > 15 && depth < 5) {
-            // Number of sub-branches depends on frequency data and depth
-            const branchCount = depth === 0 ? 2 : Math.floor(2 + midFreq * 3);
+        // Create sub-branches with better conditions for fuller tree
+        if (length > 10 && depth < 6) {
+            // More branches for fuller tree - base minimum of 2, up to 4
+            const baseBranchCount = depth === 0 ? 2 : 2; // At least 2 branches
+            const audioBranchCount = Math.floor(midFreq * 3); // 0-3 additional branches based on audio
+            const branchCount = Math.min(4, baseBranchCount + audioBranchCount);
 
             for (let i = 0; i < branchCount; i++) {
-                // Branch angles spread out naturally
+                // Branch angles spread out more naturally
                 let branchAngle;
                 if (depth === 0) {
-                    // Main trunk splits into two primary branches
-                    branchAngle = angle + (i === 0 ? -Math.PI / 6 : Math.PI / 6);
+                    // Main trunk splits into primary branches
+                    branchAngle = angle + (i === 0 ? -Math.PI / 5 : Math.PI / 5);
                 } else {
-                    // Sub-branches spread more dynamically
-                    const angleSpread = Math.PI / 4 + midFreq * Math.PI / 6;
+                    // Sub-branches spread more evenly
+                    const angleSpread = Math.PI / 3 + midFreq * Math.PI / 6;
                     branchAngle = angle + (i - (branchCount - 1) / 2) * angleSpread / (branchCount - 1);
                 }
 
-                // Branch length decreases with depth and reacts to audio
-                const branchLength = length * (0.6 + highFreq * 0.2);
+                // Branch length with better proportions
+                const branchLength = length * (0.7 + highFreq * 0.15); // Increased from 0.65 + 0.1
 
-                // Add slight randomization for natural look
-                const randomOffset = (Math.random() - 0.5) * 0.2;
+                // Minimal randomization for smoother look
+                const randomOffset = (Math.random() - 0.5) * 0.01;
                 branchAngle += randomOffset;
 
                 // Recursively draw sub-branches
@@ -973,7 +999,7 @@ class UIManager {
                     endY,
                     branchAngle,
                     branchLength,
-                    branchThickness * 0.7,
+                    branchThickness * 0.75, // Less aggressive thickness reduction
                     depth + 1,
                     swayAmount,
                     volumeIntensity,
@@ -984,16 +1010,16 @@ class UIManager {
             }
         }
 
-        // Draw leaves on the smallest branches
-        if (depth >= 3 && highFreq > 0.2) {
-            const leafCount = Math.floor(highFreq * 4);
+        // Draw leaves more generously
+        if (depth >= 2 && highFreq > 0.2) { // Lowered threshold from 0.3
+            const leafCount = Math.floor(highFreq * 3 + 1); // More leaves
             for (let i = 0; i < leafCount; i++) {
                 const leafX = endX + (Math.random() - 0.5) * 8;
                 const leafY = endY + (Math.random() - 0.5) * 8;
                 const leafSize = 1 + highFreq * 2;
 
                 ctx.fillStyle = accentColor;
-                ctx.globalAlpha = 0.6 + highFreq * 0.4;
+                ctx.globalAlpha = 0.5 + highFreq * 0.4;
                 ctx.beginPath();
                 ctx.arc(leafX, leafY, leafSize, 0, Math.PI * 2);
                 ctx.fill();
@@ -1001,10 +1027,10 @@ class UIManager {
             }
         }
 
-        // Draw flowers/buds on branch tips when high frequency is strong
-        if (depth >= 2 && highFreq > 0.5) {
+        // Draw flowers/buds more generously
+        if (depth >= 2 && highFreq > 0.4) { // Lowered threshold from 0.6
             ctx.fillStyle = this.adjustBrightness(accentColor, 20);
-            ctx.globalAlpha = highFreq;
+            ctx.globalAlpha = highFreq * 0.8;
             ctx.beginPath();
             ctx.arc(endX, endY, 2 + highFreq * 2, 0, Math.PI * 2);
             ctx.fill();
