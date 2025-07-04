@@ -20,7 +20,7 @@ class UIManager {
             { name: 'Spiral', draw: this.drawSpiral.bind(this) },
             { name: 'Matrix', draw: this.drawMatrix.bind(this) }
         ];
-        
+
         // Tree visualizer properties
         this.treeState = {
             branches: [],
@@ -28,11 +28,11 @@ class UIManager {
             pulsePhase: 0,
             lastUpdate: 0
         };
-        
+
         // Particles visualizer properties
         this.particles = [];
         this.particleCount = 50;
-        
+
         // Initialize particles
         this.initParticles();
 
@@ -101,11 +101,11 @@ class UIManager {
         // Visualizer controls
         const prevVisualizer = document.getElementById('prevVisualizer');
         const nextVisualizer = document.getElementById('nextVisualizer');
-        
+
         if (prevVisualizer) {
             prevVisualizer.addEventListener('click', () => this.switchVisualizer(-1));
         }
-        
+
         if (nextVisualizer) {
             nextVisualizer.addEventListener('click', () => this.switchVisualizer(1));
         }
@@ -637,13 +637,13 @@ class UIManager {
 
     switchVisualizer(direction) {
         this.currentVisualizerIndex += direction;
-        
+
         if (this.currentVisualizerIndex < 0) {
             this.currentVisualizerIndex = this.visualizers.length - 1;
         } else if (this.currentVisualizerIndex >= this.visualizers.length) {
             this.currentVisualizerIndex = 0;
         }
-        
+
         this.updateVisualizerName();
         this.updateStatus(`Switched to ${this.visualizers[this.currentVisualizerIndex].name} visualizer`);
     }
@@ -876,7 +876,7 @@ class UIManager {
             if (!analyserData) return;
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
-            
+
             // Calculate average volume and frequency distribution
             const avgVolume = analyserData.reduce((sum, val) => sum + val, 0) / analyserData.length;
             const volumeIntensity = avgVolume / 255;
@@ -887,17 +887,17 @@ class UIManager {
             // Update tree animation state
             this.treeState.swayOffset += 0.01;
             this.treeState.pulsePhase += 0.03;
-            
+
             // Tree base position
             const baseX = width / 2;
             const baseY = height - 10;
-            
+
             // Gentle sway based on low frequencies
             const swayAmount = Math.sin(this.treeState.swayOffset) * lowFreq * 8;
-            
+
             // Draw the tree recursively
-            this.drawTreeBranch(ctx, baseX, baseY, -Math.PI/2, height * 0.25, 8, 0, swayAmount, volumeIntensity, midFreq, highFreq, accentColor);
-            
+            this.drawTreeBranch(ctx, baseX, baseY, -Math.PI / 2, height * 0.25, 8, 0, swayAmount, volumeIntensity, midFreq, highFreq, accentColor);
+
             // Draw ground line
             ctx.strokeStyle = this.adjustBrightness(accentColor, -40);
             ctx.lineWidth = 2;
@@ -905,7 +905,7 @@ class UIManager {
             ctx.moveTo(0, baseY);
             ctx.lineTo(width, baseY);
             ctx.stroke();
-            
+
             // Draw pulsing aura around tree base
             const pulseRadius = 15 + Math.sin(this.treeState.pulsePhase) * 10 * volumeIntensity;
             ctx.strokeStyle = accentColor;
@@ -924,16 +924,16 @@ class UIManager {
     drawTreeBranch(ctx, x, y, angle, length, thickness, depth, swayAmount, volumeIntensity, midFreq, highFreq, accentColor) {
         // Maximum recursion depth
         if (depth > 6 || length < 5) return;
-        
+
         // Calculate branch end position with sway
         const swayFactor = Math.pow(0.8, depth); // Sway decreases with depth
         const actualSway = swayAmount * swayFactor;
         const endX = x + Math.cos(angle) * length + actualSway;
         const endY = y + Math.sin(angle) * length;
-        
+
         // Branch thickness decreases with depth and reacts to volume
         const branchThickness = Math.max(1, thickness * (0.7 + volumeIntensity * 0.3));
-        
+
         // Draw the branch
         ctx.strokeStyle = depth === 0 ? this.adjustBrightness(accentColor, -30) : accentColor;
         ctx.lineWidth = branchThickness;
@@ -941,49 +941,49 @@ class UIManager {
         ctx.moveTo(x, y);
         ctx.lineTo(endX, endY);
         ctx.stroke();
-        
+
         // Only create sub-branches if we have enough length and haven't reached max depth
         if (length > 15 && depth < 5) {
             // Number of sub-branches depends on frequency data and depth
             const branchCount = depth === 0 ? 2 : Math.floor(2 + midFreq * 3);
-            
+
             for (let i = 0; i < branchCount; i++) {
                 // Branch angles spread out naturally
                 let branchAngle;
                 if (depth === 0) {
                     // Main trunk splits into two primary branches
-                    branchAngle = angle + (i === 0 ? -Math.PI/6 : Math.PI/6);
+                    branchAngle = angle + (i === 0 ? -Math.PI / 6 : Math.PI / 6);
                 } else {
                     // Sub-branches spread more dynamically
-                    const angleSpread = Math.PI/4 + midFreq * Math.PI/6;
-                    branchAngle = angle + (i - (branchCount-1)/2) * angleSpread / (branchCount-1);
+                    const angleSpread = Math.PI / 4 + midFreq * Math.PI / 6;
+                    branchAngle = angle + (i - (branchCount - 1) / 2) * angleSpread / (branchCount - 1);
                 }
-                
+
                 // Branch length decreases with depth and reacts to audio
                 const branchLength = length * (0.6 + highFreq * 0.2);
-                
+
                 // Add slight randomization for natural look
                 const randomOffset = (Math.random() - 0.5) * 0.2;
                 branchAngle += randomOffset;
-                
+
                 // Recursively draw sub-branches
                 this.drawTreeBranch(
-                    ctx, 
-                    endX, 
-                    endY, 
-                    branchAngle, 
-                    branchLength, 
-                    branchThickness * 0.7, 
-                    depth + 1, 
-                    swayAmount, 
-                    volumeIntensity, 
-                    midFreq, 
-                    highFreq, 
+                    ctx,
+                    endX,
+                    endY,
+                    branchAngle,
+                    branchLength,
+                    branchThickness * 0.7,
+                    depth + 1,
+                    swayAmount,
+                    volumeIntensity,
+                    midFreq,
+                    highFreq,
                     accentColor
                 );
             }
         }
-        
+
         // Draw leaves on the smallest branches
         if (depth >= 3 && highFreq > 0.2) {
             const leafCount = Math.floor(highFreq * 4);
@@ -991,7 +991,7 @@ class UIManager {
                 const leafX = endX + (Math.random() - 0.5) * 8;
                 const leafY = endY + (Math.random() - 0.5) * 8;
                 const leafSize = 1 + highFreq * 2;
-                
+
                 ctx.fillStyle = accentColor;
                 ctx.globalAlpha = 0.6 + highFreq * 0.4;
                 ctx.beginPath();
@@ -1000,7 +1000,7 @@ class UIManager {
                 ctx.globalAlpha = 1;
             }
         }
-        
+
         // Draw flowers/buds on branch tips when high frequency is strong
         if (depth >= 2 && highFreq > 0.5) {
             ctx.fillStyle = this.adjustBrightness(accentColor, 20);
@@ -1107,7 +1107,7 @@ class UIManager {
                 const angle = (i / analyserData.length) * Math.PI * 8; // Multiple spirals
                 const radius = (i / analyserData.length) * Math.min(width, height) / 2;
                 const amplitude = (analyserData[i] / 255) * 20;
-                
+
                 const x = centerX + Math.cos(angle) * (radius + amplitude);
                 const y = centerY + Math.sin(angle) * (radius + amplitude);
 
@@ -1130,38 +1130,146 @@ class UIManager {
         const width = canvas.width;
         const height = canvas.height;
 
-        // Clear canvas
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary-bg');
+        // Initialize matrix state if not exists
+        if (!this.matrixState) {
+            this.matrixState = {
+                drops: [],
+                characters: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン',
+                fontSize: 14,
+                columns: 0,
+                lastUpdate: 0
+            };
+        }
+
+        // Calculate columns based on font size
+        const fontSize = this.matrixState.fontSize;
+        const columns = Math.floor(width / fontSize);
+
+        // Initialize drops if columns changed
+        if (this.matrixState.columns !== columns) {
+            this.matrixState.columns = columns;
+            this.matrixState.drops = [];
+            for (let i = 0; i < columns; i++) {
+                this.matrixState.drops.push({
+                    y: Math.random() * height,
+                    speed: Math.random() * 3 + 1,
+                    length: Math.random() * 20 + 5,
+                    lastChar: 0,
+                    chars: []
+                });
+            }
+        }
+
+        // Semi-transparent black background for trailing effect
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
         ctx.fillRect(0, 0, width, height);
 
-        if (!window.audioEngine || !window.audioEngine.audioContext) return;
+        if (!window.audioEngine || !window.audioEngine.audioContext) {
+            // Still animate without audio
+            this.animateMatrixDrops(ctx, width, height, fontSize, 0.1);
+            return;
+        }
 
         try {
             const analyserData = window.audioEngine.getAnalyserData();
-            if (!analyserData) return;
+            if (!analyserData) {
+                this.animateMatrixDrops(ctx, width, height, fontSize, 0.1);
+                return;
+            }
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
-            const cellSize = 8;
-            const cols = Math.floor(width / cellSize);
-            const rows = Math.floor(height / cellSize);
+            const avgVolume = analyserData.reduce((sum, val) => sum + val, 0) / analyserData.length;
+            const volumeIntensity = avgVolume / 255;
 
-            for (let i = 0; i < Math.min(analyserData.length, cols * rows); i++) {
-                const intensity = analyserData[i] / 255;
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                const x = col * cellSize;
-                const y = row * cellSize;
+            // Animate drops based on audio
+            this.animateMatrixDrops(ctx, width, height, fontSize, volumeIntensity, accentColor, analyserData);
 
-                if (intensity > 0.1) {
-                    ctx.fillStyle = accentColor;
-                    ctx.globalAlpha = intensity;
-                    ctx.fillRect(x, y, cellSize - 1, cellSize - 1);
-                    ctx.globalAlpha = 1;
-                }
-            }
         } catch (error) {
             // Silently handle errors
         }
+    }
+
+    animateMatrixDrops(ctx, width, height, fontSize, volumeIntensity, accentColor = '#00ff00', analyserData = null) {
+        const now = Date.now();
+        const deltaTime = now - this.matrixState.lastUpdate;
+        this.matrixState.lastUpdate = now;
+
+        ctx.font = `${fontSize}px 'Courier New', monospace`;
+        ctx.textAlign = 'center';
+
+        for (let i = 0; i < this.matrixState.drops.length; i++) {
+            const drop = this.matrixState.drops[i];
+            const x = i * fontSize + fontSize / 2;
+
+            // Get frequency intensity for this column
+            const freqIndex = Math.floor((i / this.matrixState.columns) * (analyserData?.length || 32));
+            const freqIntensity = analyserData ? analyserData[freqIndex] / 255 : 0.3;
+
+            // Adjust speed based on audio
+            const speedMultiplier = 1 + (volumeIntensity * 2) + (freqIntensity * 3);
+            drop.speed = (Math.random() * 2 + 1) * speedMultiplier;
+
+            // Update character change rate based on audio
+            const charChangeRate = 100 - (freqIntensity * 80); // Faster changes with higher frequencies
+
+            // Draw the trail
+            for (let j = 0; j < drop.length; j++) {
+                const charY = drop.y - (j * fontSize);
+
+                if (charY > 0 && charY < height) {
+                    // Calculate alpha based on position in trail
+                    const alpha = Math.max(0, 1 - (j / drop.length));
+
+                    // Leading character is brightest (white/bright accent)
+                    if (j === 0) {
+                        ctx.fillStyle = accentColor || '#ffffff';
+                        ctx.globalAlpha = 1;
+                    } else {
+                        // Trail characters fade from accent color to darker
+                        const color = this.hexToRgb(accentColor || '#00ff00');
+                        const intensity = alpha * (0.3 + freqIntensity * 0.7);
+                        ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${intensity})`;
+                        ctx.globalAlpha = 1;
+                    }
+
+                    // Get or generate character for this position
+                    if (!drop.chars[j] || (Math.random() * charChangeRate < deltaTime)) {
+                        drop.chars[j] = this.matrixState.characters.charAt(
+                            Math.floor(Math.random() * this.matrixState.characters.length)
+                        );
+                    }
+
+                    ctx.fillText(drop.chars[j], x, charY);
+                }
+            }
+
+            // Move drop down
+            drop.y += drop.speed * (deltaTime / 16); // Normalize for ~60fps
+
+            // Reset drop when it goes off screen
+            if (drop.y > height + (drop.length * fontSize)) {
+                drop.y = -drop.length * fontSize;
+                drop.speed = Math.random() * 2 + 1;
+                drop.length = Math.random() * 15 + 10 + (volumeIntensity * 20); // Longer trails with more audio
+                drop.chars = []; // Clear characters for new drop
+
+                // Sometimes start drops from random positions for more chaos
+                if (Math.random() < 0.1 + (volumeIntensity * 0.3)) {
+                    drop.y = Math.random() * height;
+                }
+            }
+        }
+
+        ctx.globalAlpha = 1; // Reset alpha
+    }
+
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : { r: 0, g: 255, b: 0 }; // Default to green
     }
 
     newProject() {
