@@ -1221,3 +1221,41 @@ input[type="range"]::-moz-range-progress {
     gap: var(--spacing-sm);
     align-items: center;
 }
+
+.visualizer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.visualizer-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.visualizer-controls .btn {
+    padding: 4px 8px;
+    min-width: auto;
+}
+
+.visualizer-controls span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    min-width: 60px;
+    text-align: center;
+}
+
+#waveformCanvas {
+    background: var(--secondary-bg);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    cursor: crosshair;
+}
+
+.visualizer-controls .btn:hover {
+    background: var(--accent-color);
+    color: var(--primary-bg);
+}

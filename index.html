@@ -304,7 +304,18 @@
             <!-- Right Panel - Visualizer & Block Inspector -->
             <aside class="right-panel">
                 <div class="panel-section">
-                    <h3>Waveform</h3>
+                    <div class="visualizer-header">
+                        <h3>Waveform</h3>
+                        <div class="visualizer-controls">
+                            <button class="btn btn-sm" id="prevVisualizer" title="Previous Visualizer">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="visualizerName">Spectrum</span>
+                            <button class="btn btn-sm" id="nextVisualizer" title="Next Visualizer">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                     <canvas id="waveformCanvas" width="300" height="150"></canvas>
                 </div>
 

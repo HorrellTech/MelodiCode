@@ -2067,6 +2067,15 @@ class AudioEngine {
         this.analyser.getByteFrequencyData(dataArray);
         return dataArray;
     }
+
+    getWaveformData() {
+        if (!this.analyser) return null;
+        
+        const bufferLength = this.analyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+        this.analyser.getByteTimeDomainData(dataArray);
+        return dataArray;
+    }
 }
 
 // Global audio engine instance
