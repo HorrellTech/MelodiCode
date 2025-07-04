@@ -2,6 +2,8 @@
   <img src="logo.png" alt="MelodiCode Logo" width="600"/>
 </p>
 
+[App Link](https://horrelltech.github.io/MelodiCode/)
+
 # MelodiCode
 ## Code-Based Music Generator
 
@@ -38,6 +40,7 @@ Use the built-in Google Gemini assistant(with your own API key) to generate song
 - **Waveform Visualization**: Real-time audio analysis and visual feedback
 - **Keyboard Shortcuts**: Efficient workflow with customizable hotkeys
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Text-To-Speech**: Use like any other command, does NOT export to WAV
 
 ## 🚀 Getting Started
 

@@ -1327,6 +1327,30 @@ class AudioEngine {
                 this.generateOfflineTone(frequency, durationInSeconds, offlineEngine.audioContext, effectInputNode, startTime, waveType, toneVolume);
                 return durationInSeconds;
 
+            case 'slide':
+                return this.executeOfflineSlide(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'sidechain':
+                return this.executeOfflineSidechain(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'pattern':
+                return this.executeOfflinePattern(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'sequence':
+                return this.executeOfflineSequence(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'play':
+                return this.executeOfflinePlay(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'playasync':
+                return this.executeOfflinePlayAsync(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'loop':
+                return this.executeOfflineLoop(parts, startTime, effectInputNode, offlineEngine);
+
+            case 'loopasync':
+                return this.executeOfflineLoopAsync(parts, startTime, effectInputNode, offlineEngine);
+
             case 'wait':
                 const waitDuration = parseFloat(parts[1]) || 0;
                 return waitDuration * (60 / offlineEngine.bpm); // Convert beats to seconds
@@ -1376,6 +1400,190 @@ class AudioEngine {
         }
     }
 
+    executeOfflineSlide(parts, startTime, effectInputNode, offlineEngine) {
+        const key1 = parts[1];
+        const key2 = parts[2];
+        const timescale = parseFloat(parts[3]) || 1;
+        const durationInSeconds = timescale * (60 / offlineEngine.bpm);
+
+        // Optional: waveType, volume, pan
+        const waveType = parts[4] || 'sine';
+        const volume = parseFloat(parts[5]) || 0.8;
+        const pan = parseFloat(parts[6]) || 0;
+
+        // Support both note names and frequencies
+        const freq1 = isNaN(key1) ? this.noteToFrequency(key1) : parseFloat(key1);
+        const freq2 = isNaN(key2) ? this.noteToFrequency(key2) : parseFloat(key2);
+
+        const ctx = offlineEngine.audioContext;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        const panNode = ctx.createStereoPanner();
+
+        // Schedule the oscillator frequency changes
+        oscillator.type = waveType;
+        oscillator.frequency.setValueAtTime(freq1, startTime);
+        oscillator.frequency.linearRampToValueAtTime(freq2, startTime + durationInSeconds);
+
+        // Schedule the pan value
+        panNode.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), startTime);
+
+        // Smooth envelope
+        const fadeTime = Math.min(0.003, durationInSeconds * 0.03);
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(volume, startTime + fadeTime);
+        gainNode.gain.setValueAtTime(volume, startTime + durationInSeconds - fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, startTime + durationInSeconds);
+
+        // Connect the audio graph
+        oscillator.connect(gainNode);
+        gainNode.connect(panNode);
+        panNode.connect(effectInputNode);
+
+        // Schedule the oscillator to start and stop
+        oscillator.start(startTime);
+        oscillator.stop(startTime + durationInSeconds);
+
+        console.log(`Scheduled slide from ${freq1}Hz to ${freq2}Hz for ${durationInSeconds}s at time ${startTime}`);
+        return durationInSeconds;
+    }
+
+    async executeOfflineSidechain(parts, startTime, effectInputNode, offlineEngine) {
+        const block1 = parts[1]; // Block to be ducked
+        const block2 = parts[2]; // Trigger block
+        const amount = parseFloat(parts[3]);
+
+        if (!window.codeInterpreter.blocks.has(block1) || !window.codeInterpreter.blocks.has(block2)) {
+            console.warn(`One or both blocks not found: ${block1}, ${block2}`);
+            return 0;
+        }
+
+        const ctx = offlineEngine.audioContext;
+
+        // Create a gain node to control block1's volume
+        const sidechainGain = ctx.createGain();
+        sidechainGain.gain.value = 1; // Start at full volume
+
+        // Connect sidechain gain to the output
+        sidechainGain.connect(effectInputNode);
+
+        // Calculate durations for both blocks
+        const block1Duration = window.codeInterpreter.estimateDuration(block1);
+        const block2Duration = window.codeInterpreter.estimateDuration(block2);
+
+        // Use the longer duration, but ensure we have at least some playback time
+        const maxDuration = Math.max(block1Duration, block2Duration, 4); // Minimum 4 seconds
+
+        console.log(`Offline Sidechain: block1 (${block1}) duration: ${block1Duration}s, block2 (${block2}) duration: ${block2Duration}s, total: ${maxDuration}s`);
+
+        // Get all trigger times from block2
+        const triggerTimes = this.getOfflineTriggerTimes(block2, block2Duration, maxDuration, offlineEngine);
+        console.log(`Offline Sidechain: Found ${triggerTimes.length} triggers at times:`, triggerTimes);
+
+        // Schedule ducking automation
+        const duckDuration = 0.15; // How long the duck lasts
+        const attackTime = 0.01;   // How quickly it ducks
+
+        triggerTimes.forEach((triggerTime, index) => {
+            if (triggerTime < maxDuration) {
+                const absoluteTime = startTime + triggerTime;
+
+                console.log(`Scheduling offline duck ${index + 1} at ${triggerTime}s (absolute: ${absoluteTime}s)`);
+
+                // Duck the gain
+                sidechainGain.gain.cancelScheduledValues(absoluteTime);
+                sidechainGain.gain.setValueAtTime(1, absoluteTime);
+                sidechainGain.gain.linearRampToValueAtTime(1 - amount, absoluteTime + attackTime);
+                sidechainGain.gain.linearRampToValueAtTime(1, absoluteTime + duckDuration);
+            }
+        });
+
+        const allExecutionPromises = [];
+
+        // Execute block1 (gets sidechained) through the sidechain gain
+        if (block1Duration > 0 && block1Duration < maxDuration) {
+            // Loop block1 to fill duration
+            const loops = Math.ceil(maxDuration / block1Duration);
+            for (let i = 0; i < loops; i++) {
+                const loopStart = startTime + (i * block1Duration);
+                if (loopStart < startTime + maxDuration) {
+                    allExecutionPromises.push(this.executeOfflineBlock(block1, loopStart, sidechainGain, offlineEngine));
+                }
+            }
+        } else {
+            allExecutionPromises.push(this.executeOfflineBlock(block1, startTime, sidechainGain, offlineEngine));
+        }
+
+        // Execute block2 (triggers sidechain) directly to output
+        if (block2Duration > 0 && block2Duration < maxDuration) {
+            // Loop block2 to fill duration
+            const loops = Math.ceil(maxDuration / block2Duration);
+            for (let i = 0; i < loops; i++) {
+                const loopStart = startTime + (i * block2Duration);
+                if (loopStart < startTime + maxDuration) {
+                    allExecutionPromises.push(this.executeOfflineBlock(block2, loopStart, effectInputNode, offlineEngine));
+                }
+            }
+        } else {
+            allExecutionPromises.push(this.executeOfflineBlock(block2, startTime, effectInputNode, offlineEngine));
+        }
+
+        await Promise.all(allExecutionPromises);
+        return maxDuration;
+    }
+
+    getOfflineTriggerTimes(blockName, blockDuration, totalDuration, offlineEngine) {
+        const commands = window.codeInterpreter.blocks.get(blockName);
+        const triggers = [];
+
+        const loopCount = blockDuration > 0 ? Math.ceil(totalDuration / blockDuration) : 1;
+
+        for (let loop = 0; loop < loopCount; loop++) {
+            const loopStart = loop * blockDuration;
+            if (loopStart >= totalDuration) break;
+
+            let time = 0;
+            const beatDuration = 60 / offlineEngine.bpm;
+
+            for (const command of commands) {
+                const cmdParts = command.split(/\s+/);
+                const cmd = cmdParts[0];
+
+                if (cmd === 'sample') {
+                    triggers.push(loopStart + time);
+                } else if (cmd === 'tone') {
+                    triggers.push(loopStart + time);
+                    const duration = parseFloat(cmdParts[2] || '1') * beatDuration;
+                    time += duration;
+                } else if (cmd === 'slide') {
+                    triggers.push(loopStart + time);
+                    const duration = parseFloat(cmdParts[3] || '1') * beatDuration;
+                    time += duration;
+                } else if (cmd === 'wait') {
+                    time += parseFloat(cmdParts[1]) * beatDuration;
+                } else if (cmd === 'pattern') {
+                    // Handle pattern triggers
+                    for (let i = 2; i < cmdParts.length; i += 2) {
+                        if (i + 1 < cmdParts.length) {
+                            const patternStr = cmdParts[i + 1].replace(/"/g, '');
+                            const steps = patternStr.split('-');
+                            const stepDuration = beatDuration / 4;
+
+                            for (let j = 0; j < steps.length; j++) {
+                                if (steps[j].trim() === '1' || steps[j].trim() === 'x' || steps[j].trim() === 'X') {
+                                    triggers.push(loopStart + time + (j * stepDuration));
+                                }
+                            }
+                            time += steps.length * stepDuration;
+                        }
+                    }
+                }
+            }
+        }
+
+        return triggers;
+    }
+
     async executeCodeOffline(offlineEngine, maxDuration) {
         // Temporarily replace the global audioEngine with our offline version
         const originalAudioEngine = window.audioEngine;
@@ -1418,6 +1626,338 @@ class AudioEngine {
         offlineEngine.generateTone(440, 1, 'sine', 0, 0.5);
         offlineEngine.generateTone(880, 1, 'sine', 1, 0.5);
         offlineEngine.playSample('kick', 1, 1, 2, 0.8);
+    }
+
+    async executeOfflineBlock(blockName, startTime, outputNode, offlineEngine) {
+        if (!window.codeInterpreter.blocks.has(blockName)) {
+            console.warn(`Block '${blockName}' not found for offline execution`);
+            return 0;
+        }
+
+        const commands = window.codeInterpreter.blocks.get(blockName);
+        let currentTime = 0;
+
+        // Execute block commands
+        let i = 0;
+        while (i < commands.length) {
+            const command = commands[i];
+            const parts = command.split(/\s+/);
+            const cmd = parts[0];
+
+            if (cmd === 'if') {
+                const result = await this.executeOfflineIf(parts, startTime + currentTime, commands, i, outputNode, offlineEngine);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else if (cmd === 'for') {
+                const result = await this.executeOfflineFor(parts, startTime + currentTime, commands, i, outputNode, offlineEngine);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else {
+                // Execute command with the specified output node
+                const duration = await this.executeOfflineCommand(command, startTime + currentTime, outputNode, offlineEngine);
+                currentTime += duration;
+                i++;
+            }
+        }
+
+        return currentTime;
+    }
+
+    async executeOfflinePattern(parts, startTime, effectInputNode, offlineEngine) {
+        if (parts.length < 3 || parts.length % 2 !== 1) {
+            console.warn('Pattern command requires pairs of a sample name and a pattern string.');
+            return 0;
+        }
+
+        const patterns = [];
+        // Loop through parts, taking a sample name and a pattern string as a pair
+        for (let i = 1; i < parts.length; i += 2) {
+            const sampleName = parts[i];
+            const patternString = parts[i + 1].replace(/"/g, ''); // Remove quotes
+            patterns.push({ name: sampleName, string: patternString });
+        }
+
+        if (patterns.length === 0) {
+            return 0;
+        }
+
+        let maxLength = 0;
+        const executionPromises = [];
+        const stepDuration = (60 / offlineEngine.bpm) / 4; // 16th notes
+
+        // Process each pattern definition
+        for (const pattern of patterns) {
+            const steps = pattern.string.split('-');
+            if (steps.length > maxLength) {
+                maxLength = steps.length;
+            }
+
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i].trim();
+                if (step === '1' || step === 'x' || step === 'X') {
+                    const hitTime = startTime + (i * stepDuration);
+                    // Schedule the sample play
+                    executionPromises.push(
+                        this.executeOfflineCommand(`sample ${pattern.name}`, hitTime, effectInputNode, offlineEngine)
+                    );
+                }
+            }
+        }
+
+        // Wait for all sample scheduling commands to be initiated
+        await Promise.all(executionPromises);
+
+        // The total duration is determined by the longest pattern
+        return maxLength * stepDuration;
+    }
+
+    async executeOfflineSequence(parts, startTime, effectInputNode, offlineEngine) {
+        const sampleName = parts[1];
+        const steps = parts.slice(2);
+
+        let currentTime = 0;
+        const stepDuration = (60 / offlineEngine.bpm) / 4;
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            if (step !== '-' && step !== '0') {
+                await this.executeOfflineCommand(`sample ${step}`, startTime + currentTime, effectInputNode, offlineEngine);
+            }
+            currentTime += stepDuration;
+        }
+
+        return currentTime;
+    }
+
+    async executeOfflinePlay(parts, startTime, effectInputNode, offlineEngine) {
+        const blockNames = [];
+        const params = {};
+
+        // Parse block names and parameters
+        for (let i = 1; i < parts.length; i++) {
+            if (parts[i].includes('=')) {
+                const [key, value] = parts[i].split('=');
+                params[key] = parseFloat(value);
+            } else {
+                blockNames.push(parts[i]);
+            }
+        }
+
+        if (blockNames.length === 0) {
+            return 0;
+        }
+
+        // Estimate durations for all blocks
+        const blockDurations = blockNames.map(name => ({
+            name,
+            duration: window.codeInterpreter.estimateDuration(name)
+        }));
+
+        // Find the maximum duration among all blocks
+        const maxDuration = Math.max(...blockDurations.map(b => b.duration), 0);
+
+        if (maxDuration === 0) {
+            // If max duration is 0, just play all blocks once simultaneously
+            const promises = blockNames.map(blockName => this.executeOfflineBlock(blockName, startTime, effectInputNode, offlineEngine));
+            await Promise.all(promises);
+            return 0;
+        }
+
+        const allExecutionPromises = [];
+
+        // Schedule all block executions - shorter blocks loop to match longest
+        blockDurations.forEach(blockInfo => {
+            const { name, duration } = blockInfo;
+
+            if (duration <= 0) {
+                // Play once if duration is 0
+                allExecutionPromises.push(this.executeOfflineBlock(name, startTime, effectInputNode, offlineEngine));
+            } else {
+                // Loop the block to fill the maxDuration
+                const loopCount = Math.ceil(maxDuration / duration);
+
+                for (let i = 0; i < loopCount; i++) {
+                    const loopStartTime = startTime + (i * duration);
+                    // Ensure we don't schedule past the max duration
+                    if (loopStartTime < startTime + maxDuration) {
+                        allExecutionPromises.push(this.executeOfflineBlock(name, loopStartTime, effectInputNode, offlineEngine));
+                    }
+                }
+            }
+        });
+
+        // Wait for all scheduled blocks to complete their execution logic
+        await Promise.all(allExecutionPromises);
+
+        // The total duration of the play command is the duration of the longest block
+        return maxDuration;
+    }
+
+    async executeOfflinePlayAsync(parts, startTime, effectInputNode, offlineEngine) {
+        // For offline rendering, playasync behaves the same as play since we're not in real-time
+        return this.executeOfflinePlay(parts, startTime, effectInputNode, offlineEngine);
+    }
+
+    async executeOfflineLoop(parts, startTime, effectInputNode, offlineEngine) {
+        const count = parseInt(parts[1]);
+        const blockNames = parts.slice(2);
+
+        // Validate block names
+        for (const blockName of blockNames) {
+            if (!window.codeInterpreter.blocks.has(blockName)) {
+                console.warn(`Block '${blockName}' not found`);
+                return 0;
+            }
+        }
+
+        // Estimate durations for all blocks
+        const blockDurations = blockNames.map(name => ({
+            name,
+            duration: window.codeInterpreter.estimateDuration(name)
+        }));
+
+        // Find the maximum duration among all blocks in one iteration
+        const maxIterationDuration = Math.max(...blockDurations.map(b => b.duration), 0);
+
+        if (maxIterationDuration === 0) {
+            // If all blocks have 0 duration, just play them count times
+            let totalDuration = 0;
+            for (let i = 0; i < count; i++) {
+                const promises = blockNames.map(blockName =>
+                    this.executeOfflineBlock(blockName, startTime + totalDuration, effectInputNode, offlineEngine)
+                );
+                await Promise.all(promises);
+            }
+            return 0;
+        }
+
+        const allExecutionPromises = [];
+        let totalDuration = 0;
+
+        // For each iteration of the loop
+        for (let iteration = 0; iteration < count; iteration++) {
+            const iterationStartTime = startTime + totalDuration;
+
+            // Schedule all blocks for this iteration - shorter blocks loop within the iteration
+            blockDurations.forEach(blockInfo => {
+                const { name, duration } = blockInfo;
+
+                if (duration <= 0) {
+                    // Play once if duration is 0
+                    allExecutionPromises.push(this.executeOfflineBlock(name, iterationStartTime, effectInputNode, offlineEngine));
+                } else {
+                    // Loop the block to fill the maxIterationDuration
+                    const loopCount = Math.ceil(maxIterationDuration / duration);
+
+                    for (let i = 0; i < loopCount; i++) {
+                        const loopStartTime = iterationStartTime + (i * duration);
+                        // Ensure we don't schedule past the iteration's max duration
+                        if (loopStartTime < iterationStartTime + maxIterationDuration) {
+                            allExecutionPromises.push(this.executeOfflineBlock(name, loopStartTime, effectInputNode, offlineEngine));
+                        }
+                    }
+                }
+            });
+
+            totalDuration += maxIterationDuration;
+        }
+
+        // Wait for all scheduled blocks to complete their execution logic
+        await Promise.all(allExecutionPromises);
+
+        return totalDuration;
+    }
+
+    async executeOfflineLoopAsync(parts, startTime, effectInputNode, offlineEngine) {
+        // For offline rendering, loopasync behaves the same as loop since we're not in real-time
+        return this.executeOfflineLoop(parts, startTime, effectInputNode, offlineEngine);
+    }
+
+    async executeOfflineIf(parts, startTime, commands, currentIndex, effectInputNode, offlineEngine) {
+        const variable = parts[1];
+        const operator = parts[2];
+        const value = window.codeInterpreter.parseValue(parts[3]);
+        const varValue = window.codeInterpreter.parseValue(variable);
+
+        let condition = false;
+        switch (operator) {
+            case '>': condition = varValue > value; break;
+            case '<': condition = varValue < value; break;
+            case '==': condition = varValue == value; break;
+            case '!=': condition = varValue != value; break;
+            case '>=': condition = varValue >= value; break;
+            case '<=': condition = varValue <= value; break;
+        }
+
+        // Find matching endif
+        let endifIndex = this.findMatchingEndOffline(commands, currentIndex, 'if', 'endif');
+
+        if (condition) {
+            // Execute commands between if and endif
+            return await this.executeOfflineCommandBlock(commands, currentIndex + 1, endifIndex, startTime, effectInputNode, offlineEngine);
+        }
+
+        return { duration: 0, nextIndex: endifIndex + 1 };
+    }
+
+    async executeOfflineFor(parts, startTime, commands, currentIndex, effectInputNode, offlineEngine) {
+        const variable = parts[1];
+        const start = window.codeInterpreter.parseValue(parts[2]);
+        const end = window.codeInterpreter.parseValue(parts[3]);
+
+        let totalDuration = 0;
+        const endforIndex = this.findMatchingEndOffline(commands, currentIndex, 'for', 'endfor');
+
+        for (let i = start; i <= end; i++) {
+            window.codeInterpreter.variables.set(variable, i);
+            const result = await this.executeOfflineCommandBlock(commands, currentIndex + 1, endforIndex, startTime + totalDuration, effectInputNode, offlineEngine);
+            totalDuration += result.duration;
+        }
+
+        return { duration: totalDuration, nextIndex: endforIndex + 1 };
+    }
+
+    async executeOfflineCommandBlock(commands, startIndex, endIndex, startTime, effectInputNode, offlineEngine) {
+        let currentTime = 0;
+        let i = startIndex;
+
+        while (i < endIndex) {
+            const command = commands[i];
+            const parts = command.split(/\s+/);
+            const cmd = parts[0];
+
+            // Handle control flow commands
+            if (cmd === 'if') {
+                const result = await this.executeOfflineIf(parts, startTime + currentTime, commands, i, effectInputNode, offlineEngine);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else if (cmd === 'for') {
+                const result = await this.executeOfflineFor(parts, startTime + currentTime, commands, i, effectInputNode, offlineEngine);
+                currentTime += result.duration;
+                i = result.nextIndex;
+            } else if (cmd === 'endif' || cmd === 'endfor') {
+                // These should be handled by their respective start commands
+                i++;
+            } else {
+                // Regular commands
+                const duration = await this.executeOfflineCommand(command, startTime + currentTime, effectInputNode, offlineEngine);
+                currentTime += duration;
+                i++;
+            }
+        }
+
+        return { duration: currentTime };
+    }
+
+    findMatchingEndOffline(commands, startIndex, startKeyword, endKeyword) {
+        let depth = 1;
+        for (let i = startIndex + 1; i < commands.length; i++) {
+            const cmd = commands[i].split(/\s+/)[0];
+            if (cmd === startKeyword) depth++;
+            if (cmd === endKeyword) depth--;
+            if (depth === 0) return i;
+        }
+        return commands.length - 1;
     }
 
     async playOfflineSample(sampleName, offlineContext, outputNode, when, pitch = 1, timescale = 1, volume = 1) {
