@@ -404,25 +404,22 @@ class MobileControls {
         const projectControls = document.querySelector('.project-controls');
 
         if (toolbar) {
-            // Enable smooth scrolling for toolbar
+            // Allow smooth scrolling for toolbar
             toolbar.addEventListener('touchstart', (e) => {
-                // Allow horizontal scrolling
                 e.stopPropagation();
             }, { passive: true });
 
             toolbar.addEventListener('touchmove', (e) => {
-                // Allow horizontal scrolling
                 e.stopPropagation();
             }, { passive: true });
 
-            // Prevent toolbar from interfering with panel swipes
             toolbar.addEventListener('touchend', (e) => {
                 e.stopPropagation();
             }, { passive: true });
         }
 
         if (projectControls) {
-            // Enable smooth scrolling for project controls
+            // Allow smooth scrolling for project controls
             projectControls.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
             }, { passive: true });
@@ -436,13 +433,47 @@ class MobileControls {
             }, { passive: true });
         }
 
-        // Ensure toolbar buttons work properly on touch
+        // Handle toolbar buttons with better touch detection
         const toolbarButtons = document.querySelectorAll('.toolbar .btn');
         toolbarButtons.forEach(btn => {
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchStartTime = 0;
+            let initialScrollLeft = 0;
+
+            btn.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+
+                // Track initial scroll position
+                const scrollContainer = btn.closest('.toolbar') || btn.closest('.project-controls');
+                initialScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+
+                e.stopPropagation();
+            }, { passive: true });
+
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                btn.click();
+
+                const touchEndTime = Date.now();
+                const touchDuration = touchEndTime - touchStartTime;
+
+                // Check if scroll position changed
+                const scrollContainer = btn.closest('.toolbar') || btn.closest('.project-controls');
+                const currentScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+                const scrollDelta = Math.abs(currentScrollLeft - initialScrollLeft);
+
+                // Only trigger click if:
+                // 1. Touch was quick (less than 300ms)
+                // 2. Scroll position didn't change much (less than 5px)
+                if (touchDuration < 300 && scrollDelta < 5) {
+                    // Small delay to ensure we're not in the middle of a scroll
+                    setTimeout(() => {
+                        btn.click();
+                    }, 50);
+                }
             }, { passive: false });
         });
     }
@@ -450,7 +481,7 @@ class MobileControls {
     preventDefaultTouch(e) {
         // Don't prevent touch events on modals
         if (e.target.closest('.modal.show')) {
-            return; // Allow normal touch behavior in open modals
+            return;
         }
 
         // Don't prevent scrolling in scrollable areas (including toolbar)
@@ -467,14 +498,18 @@ class MobileControls {
         ];
 
         if (scrollableAreas.some(selector => e.target.closest(selector))) {
-            // Allow normal scrolling behavior
             return;
         }
 
-        // Prevent default on specific elements to avoid unwanted behaviors
+        // Don't prevent touch events on toolbar buttons - let them handle it themselves
+        if (e.target.closest('.toolbar .btn')) {
+            return;
+        }
+
+        // Prevent default on other elements
         const target = e.target;
         const preventElements = [
-            '.btn:not(.toolbar .btn)', // Exclude toolbar buttons from preventDefault
+            '.btn:not(.toolbar .btn)',
             '.tree-item:not(.scrollable)',
             '.mobile-nav-btn',
             'input[type="range"]:not(.toolbar input[type="range"])'
